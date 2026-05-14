@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>munni — finance app</title>
   <style>
-    html, body { margin: 0; padding: 0; height: 100%; background: #2A2823; font-family: -apple-system, system-ui, sans-serif; overflow: hidden; }
+    html, body { margin: 0; padding: 0; height: 100%; background: #2A2823; font-family: -apple-system, system-ui, sans-serif; overflow: hidden; overscroll-behavior: none; }
     #root { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
     @media (max-width: 430px) {
       html, body { background: #F7F4EE; }
@@ -383,7 +383,7 @@ if (typeof document !== 'undefined' && !document.getElementById('m-styles')) {
     .m-tap { cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
     .m-tap:active { opacity: 0.7; transform: scale(0.98); }
     .m-screen { width:100%; height:100%; background:${M.paper}; color:${M.ink}; font-family:${M.fontUI}; display:flex; flex-direction:column; overflow:hidden; }
-    .m-body-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 0 20px 24px; }
+    .m-body-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 0 20px 24px; overscroll-behavior: contain; }
     .m-body-scroll::-webkit-scrollbar { display: none; }
     .m-appbar { display:flex; align-items:center; justify-content:space-between; padding: 8px 16px 12px; gap: 8px; flex-shrink: 0; }
     .m-iconbtn { width:36px; height:36px; border-radius:999px; background:transparent; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; color:${M.ink}; }
@@ -1625,6 +1625,9 @@ function ScreenTxDetail({ params }) {
   const primaryCat = CATEGORIES[txCats[0]?.catId] || {};
   const allocTotal = txCats.reduce((s, c) => s + c.amount, 0);
   const remaining = Math.round((Math.abs(tx.amount) - allocTotal) * 100) / 100;
+  const isOnlyUncategorized = txCats.length === 1 && (txCats[0].catId === 'expenseUncategorized' || txCats[0].catId === 'incomeUncategorized');
+  const effectiveRemaining = isOnlyUncategorized ? Math.abs(tx.amount) : remaining;
+  const [showAllocInfo, setShowAllocInfo] = React.useState(false);
 
   React.useEffect(() => {
     updateTx(tx.id, { cats: txCats });
@@ -1670,19 +1673,22 @@ function ScreenTxDetail({ params }) {
         </div>
 
         {/* Categories — own card */}
-        <div className="m-card" style={{ padding: '12px 16px', marginBottom: 14, border: `1px solid ${M.line}` }}>
+        <div className="m-card" style={{ padding: '12px 16px', marginBottom: 14, border: `1px solid ${M.line}`, position:'relative' }}>
           <div className="m-cap" style={{ marginBottom: 8 }}>Categories</div>
           {txCats.map((c, i) => {
             const cat = CATEGORIES[c.catId] || {};
             const isUncategorized = c.catId === 'expenseUncategorized' || c.catId === 'incomeUncategorized';
             return (
               <React.Fragment key={c.catId + i}>
-                <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0' }}>
-                  <div style={{ width:28, height:28, borderRadius:8, background:M.paper2, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    <I name={cat.icon||'box'} size={14} color={M.ink2}/>
+                <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', opacity: isUncategorized ? 0.6 : 1 }}>
+                  <div style={{ width:28, height:28, borderRadius:8, background: isUncategorized ? M.line2 : M.paper2, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <I name={cat.icon||'box'} size={14} color={isUncategorized ? M.ink4 : M.ink2}/>
                   </div>
-                  <div style={{ flex:1, fontSize:13, fontWeight:500 }}>{catPath(cat)}</div>
-                  <div className="m-num" style={{ fontSize:13, color:M.ink2 }}>{fmtEur(c.amount)}</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:500, fontStyle: isUncategorized ? 'italic' : 'normal', color: isUncategorized ? M.ink3 : M.ink }}>{catPath(cat) || c.catId}</div>
+                    {isUncategorized && <div style={{ fontSize:10, color:M.ink4, marginTop:1 }}>Auto-set · add a category above to replace</div>}
+                  </div>
+                  <div className="m-num" style={{ fontSize:13, color: isUncategorized ? M.ink4 : M.ink2 }}>{fmtEur(c.amount)}</div>
                   {!isUncategorized && (
                     <button onClick={() => removeCategory(i)} style={{ background:'none', border:'none', color:M.clay, padding:'0 4px', fontSize:18, lineHeight:1, cursor:'pointer', fontFamily:M.fontUI }}>×</button>
                   )}
@@ -1691,14 +1697,14 @@ function ScreenTxDetail({ params }) {
               </React.Fragment>
             );
           })}
-          {remaining > 0.005 && (
+          {remaining > 0.005 && !isOnlyUncategorized && (
             <div style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 0', borderTop:`1px dashed ${M.line2}`, marginTop:4 }}>
               <div style={{ width:28, height:28 }}/>
               <span style={{ flex:1, fontSize:12, color:M.ink4 }}>Unallocated</span>
               <span className="m-num" style={{ fontSize:12, color:M.ink4 }}>{fmtEur(remaining)}</span>
             </div>
           )}
-          {remaining > 0.005 ? (
+          {effectiveRemaining > 0.005 ? (
             <div className="m-tap" onClick={() => setShowCatPicker(true)} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', borderTop:`1px solid ${M.line2}`, marginTop:4 }}>
               <div style={{ width:28, height:28, borderRadius:8, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <I name="plus" size={14} color={M.sage}/>
@@ -1706,14 +1712,19 @@ function ScreenTxDetail({ params }) {
               <span style={{ fontSize:13, color:M.sage, fontWeight:500 }}>Add category split</span>
             </div>
           ) : (
-            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', borderTop:`1px solid ${M.line2}`, marginTop:4, opacity:0.5, cursor:'default' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', borderTop:`1px solid ${M.line2}`, marginTop:4 }}>
               <div style={{ width:28, height:28, borderRadius:8, background:M.paper2, display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <I name="plus" size={14} color={M.ink4}/>
               </div>
               <span style={{ fontSize:13, color:M.ink3, fontWeight:500, flex:1 }}>Add category split</span>
-              <div title="Full amount already allocated" style={{ width:18, height:18, borderRadius:999, border:`1.5px solid ${M.ink4}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <span style={{ fontSize:10, fontWeight:700, color:M.ink4, lineHeight:1 }}>i</span>
-              </div>
+              <button onClick={() => setShowAllocInfo(s => !s)} style={{ width:20, height:20, borderRadius:999, border:`1.5px solid ${M.ink4}`, background:'none', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, cursor:'pointer', padding:0 }}>
+                <span style={{ fontSize:11, fontWeight:700, color:M.ink4, lineHeight:1 }}>i</span>
+              </button>
+              {showAllocInfo && (
+                <div style={{ position:'absolute', right:16, bottom:52, background:M.ink, color:'#fff', fontSize:11, padding:'6px 10px', borderRadius:8, maxWidth:200, zIndex:20, lineHeight:1.5 }}>
+                  Full amount already allocated across categories.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1904,13 +1915,19 @@ function ScreenTxDetail({ params }) {
 
       {showCatPicker && (
         <CategoryPicker
-          selected={txCats.length === 1 ? txCats[0].catId : null}
+          selected={txCats.length === 1 && !isOnlyUncategorized ? txCats[0].catId : null}
           positiveOnly={positive}
-          defaultAmount={remaining > 0.005 ? remaining : 0}
+          defaultAmount={effectiveRemaining > 0.005 ? effectiveRemaining : 0}
           maxAmount={Math.abs(tx.amount)}
           onClose={() => setShowCatPicker(false)}
           onPick={(catId, val) => {
             setTxCats(s => {
+              if (isOnlyUncategorized) {
+                const uncatId = positive ? 'incomeUncategorized' : 'expenseUncategorized';
+                const leftover = Math.round((Math.abs(tx.amount) - val) * 100) / 100;
+                if (leftover < 0.005) return [{ catId, amount: val }];
+                return [{ catId, amount: val }, { catId: uncatId, amount: leftover }];
+              }
               const idx = s.findIndex(x => x.catId === catId);
               if (idx >= 0) return s.map((x, i) => i === idx ? { ...x, amount: val } : x);
               return [...s, { catId, amount: val }];
@@ -4379,8 +4396,10 @@ function AllocProvider({ children }) {
 }
 
 function AllocateTopicRow({ topic, onClick }) {
-  const over = topic.actual > topic.allocated;
-  const pct  = Math.min(topic.actual / (topic.allocated || 1), 1);
+  const { txs } = useTxCtx();
+  const computedActual = txs.filter(t => topic.cats.includes(t.cat) && t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+  const over = computedActual > topic.allocated;
+  const pct  = Math.min(computedActual / (topic.allocated || 1), 1);
   return (
     <div className="m-tap" onClick={onClick} style={{ padding:'12px 0' }}>
       <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
@@ -4392,7 +4411,7 @@ function AllocateTopicRow({ topic, onClick }) {
             <div style={{ fontSize:14, fontWeight:500 }}>{topic.name}</div>
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               {over && <span style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:999, background:M.claySoft, color:M.clay, textTransform:'uppercase', letterSpacing:'0.05em' }}>over</span>}
-              <div className="m-num" style={{ fontSize:14, fontWeight:600, color:over?M.clay:M.ink }}>{fmtEur(topic.actual, {decimals:0})}</div>
+              <div className="m-num" style={{ fontSize:14, fontWeight:600, color:over?M.clay:M.ink }}>{fmtEur(computedActual, {decimals:0})}</div>
             </div>
           </div>
           <div style={{ margin:'7px 0 4px' }}>
@@ -4414,6 +4433,7 @@ function AllocateTopicRow({ topic, onClick }) {
 function ScreenAllocate() {
   const nav = useNav();
   const { topics, updateTopic, pOffset, setPOffset, unallocated } = useAlloc();
+  const { txs } = useTxCtx();
   const [showAutoConfirm, setShowAutoConfirm] = React.useState(false);
   const [recurringExpanded, setRecurringExpanded] = React.useState(false);
 
@@ -4429,7 +4449,9 @@ function ScreenAllocate() {
   const recurring = displayTopics.filter(t => t.group === 'recurring');
   const varTopics = displayTopics.filter(t => t.group === 'var');
   const recurringAllocated = recurring.reduce((s, t) => s + t.allocated, 0);
-  const recurringActual = recurring.reduce((s, t) => s + t.actual, 0);
+  const recurringActual = isCurrent
+    ? recurring.reduce((s, t) => s + txs.filter(tx => t.cats.includes(tx.cat) && tx.amount < 0).reduce((a, tx) => a + Math.abs(tx.amount), 0), 0)
+    : recurring.reduce((s, t) => s + t.actual, 0);
   const recurringOver = recurringActual > recurringAllocated;
 
   return (
@@ -4573,8 +4595,9 @@ function ScreenAllocateTopic({ params }) {
   const [showMove, setShowMove] = React.useState(false);
   const [showCatPicker, setShowCatPicker] = React.useState(false);
 
+  const { txs } = useTxCtx();
   const topic = topics.find(t => t.id === params?.id) || topics[0];
-  const topicTxs = TRANSACTIONS.filter(t => topic.cats.includes(t.cat) && t.amount < 0);
+  const topicTxs = txs.filter(t => topic.cats.includes(t.cat) && t.amount < 0);
   const computedActual = topicTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
   const over    = computedActual > topic.allocated;
   const pct     = Math.min(computedActual / (topic.allocated || 1), 1);
@@ -4787,11 +4810,20 @@ function ScreenAllocateAddTopic() {
   const [selCats, setSelCats] = React.useState([]); // [{catId, amount}]
   const [showCatPicker, setShowCatPicker] = React.useState(false);
   const [autoFund, setAutoFund] = React.useState(false);
+  const [estimateStr, setEstimateStr] = React.useState('');
+  const [estimateUserEdited, setEstimateUserEdited] = React.useState(false);
 
   const estimate = selCats.reduce((s, c) => s + c.amount, 0);
-  const canAutoFund = unallocated >= estimate && estimate > 0;
-  const allocated = autoFund && canAutoFund ? estimate : 0;
-  const canCreate = topicName.trim().length > 0 && selCats.length > 0 && estimate > 0;
+
+  React.useEffect(() => {
+    if (!estimateUserEdited && estimate > 0) setEstimateStr(String(estimate));
+    if (!estimateUserEdited && estimate === 0) setEstimateStr('');
+  }, [estimate, estimateUserEdited]);
+
+  const effectiveEstimate = estimateUserEdited ? (parseFloat(estimateStr) || 0) : estimate;
+  const canAutoFund = unallocated >= effectiveEstimate && effectiveEstimate > 0;
+  const allocated = autoFund && canAutoFund ? effectiveEstimate : 0;
+  const canCreate = topicName.trim().length > 0 && selCats.length > 0 && effectiveEstimate > 0;
 
   // Auto-estimate from transaction history per category
   const autoEstimate = (catId) => {
@@ -4847,9 +4879,8 @@ function ScreenAllocateAddTopic() {
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontSize:13, fontWeight:500 }}>{catPath(cat)}</div>
-                    <div style={{ fontSize:11, color:M.ink4, marginTop:1 }}>avg estimate</div>
+                    <div style={{ fontSize:11, color:M.ink4, marginTop:1 }}>avg estimate · <span className="m-num">{fmtEur(c.amount)}</span></div>
                   </div>
-                  <span className="m-num" style={{ fontSize:13, color:M.ink2 }}>{fmtEur(c.amount)}</span>
                   <button onClick={() => setSelCats(s => s.filter(x => x.catId !== c.catId))} style={{ background:'none', border:'none', color:M.clay, padding:'0 4px', fontSize:18, lineHeight:1, cursor:'pointer', fontFamily:M.fontUI }}>×</button>
                 </div>
                 {i < selCats.length - 1 && <Divider/>}
@@ -4866,13 +4897,32 @@ function ScreenAllocateAddTopic() {
 
         {/* 4. Estimate */}
         <div className="m-cap" style={{ marginBottom:6, paddingLeft:4 }}>Estimate</div>
-        <div className="m-card" style={{ padding:'12px 16px', marginBottom:14, border:`1px solid ${M.line}`, display:'flex', alignItems:'center', gap:10 }}>
-          <I name="wallet" size={16} color={M.ink3}/>
-          <div style={{ flex:1, fontSize:13, color:M.ink2 }}>
-            {estimate > 0 ? `${fmtEur(estimate)} · based on avg category history` : 'Add categories to calculate estimate'}
-          </div>
-          <div className="m-num" style={{ fontSize:16, fontWeight:600, color:estimate > 0 ? M.ink : M.ink4 }}>
-            {estimate > 0 ? fmtEur(estimate) : '—'}
+        <div className="m-card" style={{ padding:'12px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom: estimateUserEdited ? 6 : 0 }}>
+            <I name="wallet" size={16} color={M.ink3}/>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:12, color:M.ink4, marginBottom:4 }}>
+                {estimate > 0 && !estimateUserEdited ? 'Based on avg category history' : estimateUserEdited ? 'Custom estimate' : 'Add categories to auto-calculate'}
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontSize:13, color:M.ink3 }}>€</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={estimateStr}
+                  onChange={e => { setEstimateStr(e.target.value); setEstimateUserEdited(true); }}
+                  placeholder={estimate > 0 ? String(estimate) : '0'}
+                  style={{ flex:1, border:'none', outline:'none', fontSize:16, fontWeight:600, fontFamily:M.fontMono, background:'transparent', color: estimateStr ? M.ink : M.ink4, minWidth:0 }}
+                />
+                {!estimateUserEdited && estimate > 0 && (
+                  <span style={{ fontSize:10, fontWeight:700, color:M.sage, textTransform:'uppercase', letterSpacing:'0.05em' }}>auto</span>
+                )}
+                {estimateUserEdited && (
+                  <button onClick={() => { setEstimateUserEdited(false); setEstimateStr(''); }}
+                    style={{ background:'none', border:'none', fontSize:11, color:M.ink4, cursor:'pointer', fontFamily:M.fontUI, padding:'2px 6px' }}>reset</button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -4884,8 +4934,8 @@ function ScreenAllocateAddTopic() {
               <div style={{ fontSize:14, fontWeight:500 }}>Fund from unallocated income</div>
               <div style={{ fontSize:12, color:M.ink3, marginTop:2 }}>
                 {canAutoFund
-                  ? `Allocate ${fmtEur(estimate)} from ${fmtEur(unallocated)} available`
-                  : estimate > 0
+                  ? `Allocate ${fmtEur(effectiveEstimate)} from ${fmtEur(unallocated)} available`
+                  : effectiveEstimate > 0
                     ? `Not enough unallocated (${fmtEur(unallocated)} available)`
                     : 'Set estimate first'}
               </div>
@@ -4899,7 +4949,7 @@ function ScreenAllocateAddTopic() {
           </div>
           {autoFund && canAutoFund && (
             <div style={{ marginTop:10, padding:'8px 12px', borderRadius:10, background:M.sageSoft, fontSize:12, color:M.sage, fontWeight:500 }}>
-              {fmtEur(estimate)} will be allocated when you create this topic
+              {fmtEur(effectiveEstimate)} will be allocated when you create this topic
             </div>
           )}
         </div>
