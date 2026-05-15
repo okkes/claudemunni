@@ -794,7 +794,75 @@ const TRANSACTIONS = [
   // Google Playstore for review (must be first two in review stack)
   { id: 'gp1', date: '2026-02-10', time: '14:30', merchant: 'Google Playstore',  desc: 'GOOGLE*PLAY 493820',        cat: 'entertainment', cats:[{catId:'entertainment',amount:22.99}], amount: -22.99, account: 'main', confidence: 60, needsReview: true, aiSuggestCat: 'hobby' },
   { id: 'gp2', date: '2026-01-14', time: '11:20', merchant: 'Google Playstore',  desc: 'GOOGLE*PLAY 487231',        cat: 'entertainment', cats:[{catId:'entertainment',amount:8.99}],  amount: -8.99,  account: 'main', confidence: 62, needsReview: true, aiSuggestCat: 'hobby' },
+  // Saving account transfers — ensures Savings row > €0
+  { id: 'sav1', date: '2026-02-10', time: '09:15', merchant: 'Savings transfer', desc: 'SPAAROVERBOEKING ING SAVE',  cat: 'savings', amount: -150.00, account: 'main', savingAccount: 'save' },
+  { id: 'sav2', date: '2026-01-25', time: '09:15', merchant: 'Savings transfer', desc: 'SPAAROVERBOEKING ING SAVE',  cat: 'savings', amount: -200.00, account: 'main', savingAccount: 'save' },
+  { id: 'sav3', date: '2025-12-20', time: '09:15', merchant: 'Savings transfer', desc: 'SPAAROVERBOEKING ING SAVE',  cat: 'savings', amount: -120.00, account: 'main', savingAccount: 'save' },
+  { id: 'sav4', date: '2025-11-20', time: '09:15', merchant: 'Savings transfer', desc: 'SPAAROVERBOEKING ING SAVE',  cat: 'savings', amount: -150.00, account: 'main', savingAccount: 'save' },
+  { id: 'sav5', date: '2025-10-20', time: '09:15', merchant: 'Savings transfer', desc: 'SPAAROVERBOEKING ING SAVE',  cat: 'savings', amount: -180.00, account: 'main', savingAccount: 'save' },
+  { id: 'sav6', date: '2025-09-20', time: '09:15', merchant: 'Savings transfer', desc: 'SPAAROVERBOEKING ING SAVE',  cat: 'savings', amount: -200.00, account: 'main', savingAccount: 'save' },
+  { id: 'sav7', date: '2025-08-20', time: '09:15', merchant: 'Savings transfer', desc: 'SPAAROVERBOEKING ING SAVE',  cat: 'savings', amount: -175.00, account: 'main', savingAccount: 'save' },
 ];
+
+// Deterministic daily transaction generator — 0–5 txs/day, avg ~100/month, Aug 2025 – Feb 2026
+function genSeedTxs() {
+  function rng(seed) {
+    let s = (seed >>> 0) || 1;
+    return () => { s = ((Math.imul(s, 1664525) + 1013904223) >>> 0); return s / 4294967296; };
+  }
+  const POOL = [
+    { merchant:'Albert Heijn',   desc:'AH 5821 AMS',            cat:'groceries',       min:12, max:85 },
+    { merchant:'Jumbo',          desc:'JUMBO 0042',              cat:'groceries',       min:10, max:65 },
+    { merchant:'Lidl',           desc:'LIDL AMS CENTRUM',        cat:'groceries',       min:8,  max:50 },
+    { merchant:'Koffie ☕',      desc:'TOKI ESPRESSO',           cat:'coffee',          min:3,  max:6  },
+    { merchant:'Koffie ☕',      desc:'COFFEE CORNER AMS',       cat:'coffee',          min:2,  max:5  },
+    { merchant:'NS · Sprinter',  desc:'NS REIZIGERS',            cat:'transportPublic', min:4,  max:30 },
+    { merchant:'GVB',            desc:'GVB OV AMSTERDAM',        cat:'transportPublic', min:2,  max:8  },
+    { merchant:'Vapiano',        desc:'VAPIANO 1234 AMS',        cat:'restaurants',     min:14, max:38 },
+    { merchant:'Five Guys',      desc:'FIVEGUYS AMSTERDAM',      cat:'restaurants',     min:16, max:30 },
+    { merchant:'Thuisbezorgd',   desc:'THUISBEZORGD NL',         cat:'restaurants',     min:18, max:48 },
+    { merchant:'Deliveroo',      desc:'DELIVEROO AMS',           cat:'restaurants',     min:15, max:42 },
+    { merchant:'Sushi Place',    desc:'SUSHITIME AMS',           cat:'restaurants',     min:18, max:35 },
+    { merchant:'Etos',           desc:'ETOS 0341',               cat:'healthcare',      min:5,  max:35 },
+    { merchant:'Kruidvat',       desc:'KRUIDVAT 0281',           cat:'healthcare',      min:4,  max:30 },
+    { merchant:'Bol.com',        desc:'BOL.COM ORDER',           cat:'hobby',           min:15, max:90, confidence:62, needsReview:true },
+    { merchant:'Amazon.nl',      desc:'AMZN MKTPLC',             cat:'hobby',           min:12, max:70, confidence:55, needsReview:true },
+    { merchant:'HEMA',           desc:'HEMA AMSTERDAM',          cat:'hobby',           min:8,  max:45 },
+    { merchant:'Action',         desc:'ACTION AMSTERDAM',        cat:'hobby',           min:4,  max:25 },
+    { merchant:'H&M Nederland',  desc:'HM NETHERLANDS',          cat:'clothing',        min:18, max:80 },
+    { merchant:'Zara',           desc:'ZARA AMS BIJENKORF',      cat:'clothing',        min:25, max:95 },
+    { merchant:'Primark',        desc:'PRIMARK AMS',             cat:'clothing',        min:12, max:60 },
+    { merchant:'Coolblue',       desc:'COOLBLUE ORDER',          cat:'electronics',     min:25, max:180, confidence:58, needsReview:true },
+    { merchant:'Pathé',          desc:'PATHE ARENA AMS',         cat:'entertainment',   min:10, max:25 },
+  ];
+  const result = [];
+  const end = new Date('2026-02-18');
+  for (let d = new Date('2025-08-01'); d <= end; d.setDate(d.getDate() + 1)) {
+    const iso = d.toISOString().slice(0, 10);
+    const seed = (d.getFullYear() - 2000) * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    const r = rng(seed);
+    const n = r() < 0.06 ? 0 : (Math.floor(r() * 4) + 2);
+    for (let i = 0; i < n; i++) {
+      const p = POOL[Math.floor(r() * POOL.length)];
+      const amt = -(Math.round((p.min + r() * (p.max - p.min)) * 100) / 100);
+      const hh = 8 + Math.floor(r() * 13);
+      const mm = Math.floor(r() * 60);
+      result.push({ id:`g${seed}_${i}`, date:iso,
+        time:`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`,
+        merchant:p.merchant, desc:p.desc, cat:p.cat, amount:amt, account:'main',
+        ...(p.confidence ? { confidence:p.confidence } : {}),
+        ...(p.needsReview ? { needsReview:true } : {}) });
+    }
+    if (r() < 0.05) {
+      const savAmt = -(Math.round((80 + r() * 200) * 100) / 100);
+      result.push({ id:`gsav${seed}`, date:iso, time:'09:00',
+        merchant:'Savings transfer', desc:'SPAAROVERBOEKING ING',
+        cat:'savings', amount:savAmt, account:'main', savingAccount:'save' });
+    }
+  }
+  return result;
+}
+const GEN_TXS = genSeedTxs();
 
 const BUDGETS = [
   { id:'b1', name:'Restaurants',  icon:'fork',   spent:95.40,  total:120, period:'Weekly',   periodDays:7,  renew:'every week',    cats:['restaurants','coffee'], stack:false },
@@ -890,10 +958,10 @@ const DEBTS_PAID_OFF = [
 const DEBT_HISTORY = [240000+12000+1200+28000, 240000+11000+1100+27800, 238000+9500+900+27600, 237000+8500+800+27400, 236000+7500+700+27200, 235680];
 
 const INTEGRATIONS = [
-  { id: 'int_ah', store: 'Albert Heijn', icon: '🛒', color: '#00A0E2', category: 'Supermarket', status: 'connected', connectedSince: '2025-08-14', txCount: 42, lastSync: '2026-02-18', email: 'demo@ahbonus.nl' },
-  { id: 'int_jumbo', store: 'Jumbo', icon: '🛒', color: '#FFB800', category: 'Supermarket', status: 'available' },
-  { id: 'int_paypal', store: 'PayPal', icon: '💳', color: '#003087', category: 'Payments', status: 'available' },
-  { id: 'int_amazon', store: 'Amazon', icon: '📦', color: '#FF9900', category: 'Shopping', status: 'available' },
+  { id: 'int_ah',     store: 'Albert Heijn', icon: '🛒', color: '#00A0E2', category: 'Supermarket', status: 'connected', connectedSince: '2025-08-14', txCount: 42, lastSync: '2026-02-18', email: 'demo@ahbonus.nl' },
+  { id: 'int_jumbo',  store: 'Jumbo',        icon: '🛒', color: '#FFB800', category: 'Supermarket', status: 'connected', connectedSince: '2025-10-03', txCount: 18, lastSync: '2026-02-17', email: 'demo@jumbo.com' },
+  { id: 'int_paypal', store: 'PayPal',       icon: '💳', color: '#003087', category: 'Payments',    status: 'connected', connectedSince: '2025-11-12', txCount: 7,  lastSync: '2026-02-15', email: 'demo@paypal.nl' },
+  { id: 'int_amazon', store: 'Amazon',       icon: '📦', color: '#FF9900', category: 'Shopping',    status: 'connected', connectedSince: '2025-09-28', txCount: 12, lastSync: '2026-02-16', email: 'demo@amazon.nl' },
 ];
 
 const AH_RECEIPTS = [
@@ -902,6 +970,31 @@ const AH_RECEIPTS = [
   { id: 'ahr3', date: '2026-02-05', store: 'AH 5821 Amsterdam Centraal', total: 38.10, items: [{ name: 'Rundgehakt 500g', qty: 1, price: 5.99 }, { name: 'Aardappelen 2kg', qty: 1, price: 3.29 }, { name: 'Broccoli 400g', qty: 1, price: 2.49 }, { name: 'Wortelen 1kg', qty: 1, price: 1.99 }, { name: 'Pasta spaghetti 500g', qty: 2, price: 1.49 }, { name: 'Tomatenpuree 70g', qty: 2, price: 0.79 }], matchedTxId: 't16' },
   { id: 'ahr4', date: '2026-02-01', store: 'AH 5821 Amsterdam Centraal', total: 49.80, items: [{ name: 'Kipfilet 600g', qty: 1, price: 8.99 }, { name: 'Rijst 2kg', qty: 1, price: 3.79 }, { name: 'Groente mix 400g', qty: 2, price: 3.49 }, { name: 'Sojasaus 150ml', qty: 1, price: 2.29 }, { name: 'Kokosnoot 400ml', qty: 1, price: 2.99 }], matchedTxId: 'f4' },
 ];
+
+const JUMBO_RECEIPTS = [
+  { id: 'jr1', date: '2026-02-18', store: 'Jumbo Supermarkt Amsterdam', total: 23.50, items: [{ name: 'Jumbo Halfvolle melk 1L', qty: 2, price: 1.19 }, { name: 'Jumbo Mozzarella 125g', qty: 1, price: 1.49 }, { name: 'Tomatensoep 570ml', qty: 2, price: 1.99 }, { name: 'Kaas plakken 250g', qty: 1, price: 3.29 }, { name: 'Brood wit 800g', qty: 1, price: 1.99 }, { name: 'Jumbo Cola Zero 1.5L', qty: 2, price: 1.39 }], matchedTxId: 'tb1' },
+  { id: 'jr2', date: '2026-02-17', store: 'Jumbo Supermarkt Amsterdam', total: 23.50, items: [{ name: 'Salade mix 200g', qty: 1, price: 2.49 }, { name: 'Kippenfilet 400g', qty: 1, price: 5.99 }, { name: 'Pasta penne 500g', qty: 1, price: 1.29 }, { name: 'Tomatensaus 690g', qty: 1, price: 2.49 }, { name: 'Komkommer', qty: 1, price: 0.99 }], matchedTxId: 'tb2' },
+  { id: 'jr3', date: '2026-01-22', store: 'Jumbo Supermarkt Amsterdam', total: 31.80, items: [{ name: 'Jumbo Biologisch brood', qty: 1, price: 2.79 }, { name: 'Verse sinaasappels 8st', qty: 1, price: 2.99 }, { name: 'Rundergehakt 500g', qty: 1, price: 6.49 }, { name: 'Uien 1kg', qty: 1, price: 1.49 }], matchedTxId: null },
+];
+
+const PAYPAL_RECEIPTS = [
+  { id: 'pr1', date: '2026-02-15', store: 'PayPal — Booking.com', total: 84.00, items: [{ name: 'Hotel reservation · Berlin 21 Feb', qty: 1, price: 84.00 }], matchedTxId: null },
+  { id: 'pr2', date: '2026-01-30', store: 'PayPal — G2A.com', total: 12.99, items: [{ name: 'Game key · PC Digital', qty: 1, price: 12.99 }], matchedTxId: null },
+  { id: 'pr3', date: '2025-12-19', store: 'PayPal — iHerb', total: 34.50, items: [{ name: 'Omega-3 Fish Oil 90ct', qty: 1, price: 18.50 }, { name: 'Vitamin D3 200ct', qty: 1, price: 16.00 }], matchedTxId: null },
+];
+
+const AMAZON_RECEIPTS = [
+  { id: 'amr1', date: '2026-02-16', store: 'Amazon.nl', total: 34.99, items: [{ name: 'Logitech MX Keys S keyboard NL', qty: 1, price: 34.99 }], matchedTxId: 't8' },
+  { id: 'amr2', date: '2026-02-16', store: 'Amazon.nl', total: 22.00, items: [{ name: 'USB-C Hub 7-in-1', qty: 1, price: 22.00 }], matchedTxId: 't27' },
+  { id: 'amr3', date: '2026-01-07', store: 'Amazon.nl', total: 54.99, items: [{ name: 'Anker PowerCore 20000mAh', qty: 1, price: 29.99 }, { name: 'USB-C cable 2m braided', qty: 2, price: 12.50 }], matchedTxId: 'j11' },
+];
+
+const ALL_RECEIPTS = {
+  int_ah: AH_RECEIPTS,
+  int_jumbo: JUMBO_RECEIPTS,
+  int_paypal: PAYPAL_RECEIPTS,
+  int_amazon: AMAZON_RECEIPTS,
+};
 
 const fmtEur = (n, opts = {}) => {
   const sign = n < 0 ? '−' : (opts.signed && n > 0 ? '+' : '');
@@ -1379,15 +1472,15 @@ function ScreenHome() {
             onClick={() => nav.push('income')}/>
           <div style={{ height:1, background:M.line2 }}/>
           <PeriodStatRow icon="arrow-up-right" iconBg={M.claySoft} iconColor={M.clay}
-            label="Spent" value={pd.expense} valueColor={M.clay} sub="of €1,400 budget"
+            label="Spent" value={pd.expense} valueColor={M.clay}
             onClick={() => nav.push('expenses')}/>
           <div style={{ height:1, background:M.line2 }}/>
           <PeriodStatRow icon="rocket" iconBg={M.violetSoft} iconColor={M.violet}
             label="Invested" value={pd.invest} valueColor={M.violet}
             onClick={() => nav.push('invested')}/>
           <div style={{ height:1, background:M.line2 }}/>
-          <PeriodStatRow icon="piggy" iconBg={M.sageSoft} iconColor={M.sage}
-            label="Savings" value={periodSavings} valueColor={M.sage}
+          <PeriodStatRow icon="piggy" iconBg={M.ochreSoft} iconColor={M.ochre}
+            label="Savings" value={periodSavings} valueColor={M.ochre}
             onClick={() => nav.push('savings')}/>
           <div style={{ height:1, background:M.line2 }}/>
           <PeriodStatRow icon="goal"
@@ -1736,6 +1829,7 @@ function ScreenTxDetail({ params }) {
   const [showLinkRecurring, setShowLinkRecurring] = React.useState(false);
   const [showCatPicker, setShowCatPicker] = React.useState(false);
   const [showReceiptEdit, setShowReceiptEdit] = React.useState(false);
+  const [showSavingPicker, setShowSavingPicker] = React.useState(false);
 
   const tx = txs.find(t => t.id === params.id) || txs[0] || TRANSACTIONS[0];
   const positive = tx.amount > 0;
@@ -1871,6 +1965,19 @@ function ScreenTxDetail({ params }) {
         {/* General info card */}
         <div className="m-card" style={{ padding: '4px 16px', marginBottom: 14, border: `1px solid ${M.line}` }}>
           <DetailRow label="Account" value={account?.name || '—'}/>
+          <Divider inset={0}/>
+          {(() => {
+            const savAcct = tx.savingAccount ? ACCOUNTS.find(a => a.id === tx.savingAccount) : null;
+            return (
+              <div className="m-tap" onClick={() => setShowSavingPicker(true)} style={{ display:'flex', alignItems:'center', gap:10, padding:'13px 0' }}>
+                <div style={{ fontSize:12, color:M.ink3, width:96 }}>Saving account</div>
+                <div style={{ flex:1, fontSize:13, color:savAcct ? M.ink : M.ink4 }}>
+                  {savAcct ? savAcct.name : 'None — tap to attach'}
+                </div>
+                <I name="caretR" size={14} color={M.ink4}/>
+              </div>
+            );
+          })()}
           {showOriginal && (
             <>
               <Divider inset={0}/>
@@ -1949,6 +2056,46 @@ function ScreenTxDetail({ params }) {
                 </div>
               </div>
               <button className="m-btn outline m-tap" style={{ width:'100%' }} onClick={() => setShowLinkRecurring(false)}>Cancel</button>
+            </div>
+          </Sheet>
+        )}
+
+        {showSavingPicker && (
+          <Sheet onClose={() => setShowSavingPicker(false)}>
+            <div style={{ padding:'4px 20px 32px' }}>
+              <div className="m-h2" style={{ marginBottom:4 }}>Attach saving account</div>
+              <div style={{ fontSize:13, color:M.ink3, marginBottom:16 }}>Mark this transaction as a deposit or withdrawal to a saving account.</div>
+              <div className="m-card" style={{ padding:'4px 16px', border:`1px solid ${M.line}`, marginBottom:16 }}>
+                {ACCOUNTS.filter(a => a.type !== 'checking').map((a, i, arr) => (
+                  <React.Fragment key={a.id}>
+                    <div className="m-tap" onClick={() => { updateTx(tx.id, { savingAccount: a.id }); setShowSavingPicker(false); }}
+                      style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+                      <div style={{ width:36, height:36, borderRadius:10, background:a.color, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <I name={a.type==='invest'?'rocket':'piggy'} size={16} color="#fff"/>
+                      </div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:14, fontWeight:500 }}>{a.name}</div>
+                        <div style={{ fontSize:11, color:M.ink3, marginTop:1, fontFamily:M.fontMono }}>{a.iban}</div>
+                      </div>
+                      {tx.savingAccount === a.id && <I name="check" size={16} color={M.sage}/>}
+                    </div>
+                    {i < arr.length - 1 && <Divider inset={48}/>}
+                  </React.Fragment>
+                ))}
+                {tx.savingAccount && (
+                  <>
+                    <Divider inset={0}/>
+                    <div className="m-tap" onClick={() => { updateTx(tx.id, { savingAccount: undefined }); setShowSavingPicker(false); }}
+                      style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+                      <div style={{ width:36, height:36, borderRadius:10, background:M.claySoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <I name="x" size={16} color={M.clay}/>
+                      </div>
+                      <div style={{ flex:1, fontSize:14, fontWeight:500, color:M.clay }}>Remove attachment</div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <button className="m-btn outline m-tap" style={{ width:'100%' }} onClick={() => setShowSavingPicker(false)}>Cancel</button>
             </div>
           </Sheet>
         )}
@@ -2741,8 +2888,7 @@ function ScreenIntegrationReceipts({ params }) {
   const sourceTxId = params?.sourceTxId;
   const sourceTx = sourceTxId ? txs.find(t => t.id === sourceTxId) : null;
 
-  // Use AH_RECEIPTS for Albert Heijn; otherwise show empty
-  const receipts = intg.id === 'int_ah' ? AH_RECEIPTS : [];
+  const receipts = ALL_RECEIPTS[intg.id] || [];
 
   const selectReceipt = (receipt) => {
     if (sourceTxId) {
@@ -2802,18 +2948,56 @@ function ScreenIntegrationReceipts({ params }) {
   );
 }
 
+const DEFAULT_PROFILES = [
+  { id:'p1', name:'Personal',  icon:'user',  sub:'Main profile · ING checking', active:true  },
+  { id:'p2', name:'Family',    icon:'house', sub:'Joint with Anna · ABN',         active:false },
+  { id:'p3', name:'Freelance', icon:'bag',   sub:'VAT registered · NL',           active:false },
+];
+
 function ScreenProfile() {
   const nav = useNav();
   const [editing, setEditing] = React.useState(false);
   const [name, setName] = useLocalStorage('munni_profile_name', 'Demo van der Berg');
   const [email, setEmail] = useLocalStorage('munni_profile_email', 'demo@munni.app');
+  const [profiles, setProfiles] = useLocalStorage('munni_profiles', DEFAULT_PROFILES);
   const [draft, setDraft] = React.useState({ name, email });
   const [showReset, setShowReset] = React.useState(false);
+  const [showNewProfile, setShowNewProfile] = React.useState(false);
+  const [showDeleteProfile, setShowDeleteProfile] = React.useState(null);
+  const [newProfileDraft, setNewProfileDraft] = React.useState({ name:'', type:'bank' });
 
   const startEdit = () => { setDraft({ name, email }); setEditing(true); };
   const save = () => { setName(draft.name); setEmail(draft.email); setEditing(false); };
   const cancel = () => setEditing(false);
   const initial = name.charAt(0).toUpperCase();
+
+  const activeProfile = profiles.find(p => p.active) || profiles[0];
+  const connectedBanks = 2;
+
+  const activateProfile = (id) => setProfiles(ps => ps.map(p => ({ ...p, active: p.id === id })));
+  const deleteProfile = (id) => {
+    setProfiles(ps => {
+      const remaining = ps.filter(p => p.id !== id);
+      if (!remaining.find(p => p.active) && remaining.length > 0) remaining[0].active = true;
+      return remaining;
+    });
+    setShowDeleteProfile(null);
+  };
+  const createProfile = () => {
+    if (!newProfileDraft.name.trim()) return;
+    const newP = {
+      id: `p_${Date.now()}`,
+      name: newProfileDraft.name.trim(),
+      icon: newProfileDraft.type === 'bank' ? 'card' : 'piggy',
+      sub: newProfileDraft.type === 'bank' ? 'New profile · connect a bank' : 'Saving account · manual',
+      active: false,
+    };
+    setProfiles(ps => [...ps, newP]);
+    setShowNewProfile(false);
+    setNewProfileDraft({ name:'', type:'bank' });
+    if (newProfileDraft.type === 'bank') nav.push('accounts');
+    else nav.push('savingsDetail', { id: 'save' });
+  };
 
   return (
     <div className="m-screen">
@@ -2825,6 +3009,7 @@ function ScreenProfile() {
         }
       />
       <div className="m-body-scroll">
+        {/* Identity card */}
         <div className="m-card" style={{ padding: 18, marginBottom: 16, border: `1px solid ${M.line}`, display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{
             width: 56, height: 56, borderRadius: 999,
@@ -2834,16 +3019,10 @@ function ScreenProfile() {
           <div style={{ flex: 1, minWidth: 0 }}>
             {editing ? (
               <>
-                <input
-                  value={draft.name}
-                  onChange={e => setDraft(d => ({...d, name: e.target.value}))}
-                  style={{ width:'100%', fontSize:16, fontWeight:600, border:`1px solid ${M.sage}`, borderRadius:8, padding:'6px 10px', fontFamily:M.fontUI, background:M.paper2, outline:'none', marginBottom:6 }}
-                />
-                <input
-                  value={draft.email}
-                  onChange={e => setDraft(d => ({...d, email: e.target.value}))}
-                  style={{ width:'100%', fontSize:13, border:`1px solid ${M.line}`, borderRadius:8, padding:'5px 10px', fontFamily:M.fontUI, background:M.paper2, outline:'none', color:M.ink3 }}
-                />
+                <input value={draft.name} onChange={e => setDraft(d => ({...d, name: e.target.value}))}
+                  style={{ width:'100%', fontSize:16, fontWeight:600, border:`1px solid ${M.sage}`, borderRadius:8, padding:'6px 10px', fontFamily:M.fontUI, background:M.paper2, outline:'none', marginBottom:6 }}/>
+                <input value={draft.email} onChange={e => setDraft(d => ({...d, email: e.target.value}))}
+                  style={{ width:'100%', fontSize:13, border:`1px solid ${M.line}`, borderRadius:8, padding:'5px 10px', fontFamily:M.fontUI, background:M.paper2, outline:'none', color:M.ink3 }}/>
               </>
             ) : (
               <>
@@ -2866,50 +3045,73 @@ function ScreenProfile() {
           )}
         </div>
 
-        <div className="m-cap" style={{ marginBottom: 8, paddingLeft: 4 }}>Profile</div>
+        {/* Profiles */}
+        <div className="m-cap" style={{ marginBottom: 8, paddingLeft: 4 }}>Profiles</div>
         <div className="m-card" style={{ padding: '4px 16px', marginBottom: 16, border: `1px solid ${M.line}` }}>
-          <ProfileRow active label="Personal" sub="2 accounts · 1 card" icon="user"/>
-          <Divider inset={48}/>
-          <ProfileRow label="Family" sub="3 accounts · joint with Anna" icon="house"/>
-          <Divider inset={48}/>
-          <ProfileRow label="Freelance" sub="VAT registered · NL" icon="bag"/>
-          <Divider inset={48}/>
-          <div className="m-tap" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 0', color: M.sage }}>
-            <div style={{ width: 32, height: 32, borderRadius: 9, background: M.sageSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {profiles.map((p, i) => (
+            <React.Fragment key={p.id}>
+              {i > 0 && <Divider inset={48}/>}
+              <div className="m-tap" onClick={() => activateProfile(p.id)} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0' }}>
+                <div style={{ width:32, height:32, borderRadius:9, background: p.active ? M.sage : M.paper2, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <I name={p.icon} size={16} color={p.active ? '#fff' : M.ink2}/>
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:14, fontWeight:600 }}>{p.name}</div>
+                  <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{p.sub}</div>
+                </div>
+                {p.active ? (
+                  <I name="check" size={16} color={M.sage}/>
+                ) : (
+                  <button className="m-tap" onClick={e => { e.stopPropagation(); setShowDeleteProfile(p); }}
+                    style={{ background:'none', border:'none', padding:4, cursor:'pointer' }}>
+                    <I name="x" size={14} color={M.ink4}/>
+                  </button>
+                )}
+              </div>
+            </React.Fragment>
+          ))}
+          <Divider inset={0}/>
+          <div className="m-tap" onClick={() => setShowNewProfile(true)} style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0', color:M.sage }}>
+            <div style={{ width:32, height:32, borderRadius:9, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
               <I name="plus" size={16} color={M.sage}/>
             </div>
-            <div style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>Add profile</div>
+            <div style={{ flex:1, fontSize:14, fontWeight:600 }}>Create profile</div>
           </div>
         </div>
 
+        {/* Manage */}
         <div className="m-cap" style={{ marginBottom: 8, paddingLeft: 4 }}>Manage</div>
         <div className="m-card" style={{ padding: '4px 16px', marginBottom: 16, border: `1px solid ${M.line}` }}>
-          <ProfileLink icon="box" label="Categories" sub="Manage custom categories" onClick={() => nav.push('manageCategories')}/>
+          <ProfileLink icon="box"     label="Categories"         sub="Manage custom categories"           onClick={() => nav.push('manageCategories')}/>
           <Divider inset={48}/>
-          <ProfileLink icon="card" label="Bank accounts" sub="2 connected" onClick={() => nav.push('accounts')}/>
+          <ProfileLink icon="card"    label="Bank accounts"      sub={`${connectedBanks} connected · source of truth`} onClick={() => nav.push('accounts')}/>
           <Divider inset={48}/>
-          <ProfileLink icon="link" label="Integrations" sub="Albert Heijn connected" onClick={() => nav.push('integrations')}/>
+          <ProfileLink icon="piggy"   label="Saving accounts"    sub="ING savings · ASN emergency"        onClick={() => nav.push('savingAccounts')}/>
           <Divider inset={48}/>
-          <ProfileLink icon="cal" label="Periods" sub="Monthly · 20th" onClick={() => nav.push('periods')}/>
+          <ProfileLink icon="link"    label="Integrations"       sub="4 stores connected"                 onClick={() => nav.push('integrations')}/>
           <Divider inset={48}/>
-          <ProfileLink icon="sliders" label="Customize home" sub="Reorder and show/hide cards" onClick={() => nav.push('customizeHome')}/>
+          <ProfileLink icon="cal"     label="Periods"            sub="Monthly · 20th"                     onClick={() => nav.push('periods')}/>
+          <Divider inset={48}/>
+          <ProfileLink icon="sliders" label="Customize home"     sub="Reorder and show/hide cards"        onClick={() => nav.push('customizeHome')}/>
         </div>
 
+        {/* Account */}
         <div className="m-cap" style={{ marginBottom: 8, paddingLeft: 4 }}>Account</div>
         <div className="m-card" style={{ padding: '4px 16px', marginBottom: 16, border: `1px solid ${M.line}` }}>
-          <ProfileLink icon="bell" label="Notifications" onClick={() => nav.push('notifications')}/>
+          <ProfileLink icon="bell"    label="Notifications"      onClick={() => nav.push('notifications')}/>
           <Divider inset={48}/>
-          <ProfileLink icon="lock" label="Privacy & security"/>
+          <ProfileLink icon="lock"    label="Privacy & security"/>
           <Divider inset={48}/>
-          <ProfileLink icon="sliders" label="Settings" sub="Appearance, notifications & more" onClick={() => nav.push('settings')}/>
+          <ProfileLink icon="sliders" label="Settings"           sub="Appearance, notifications & more"   onClick={() => nav.push('settings')}/>
           <Divider inset={48}/>
-          <ProfileLink icon="map" label="Tutorial" sub="Walkthrough of key features" onClick={() => nav.push('tutorial')}/>
+          <ProfileLink icon="map"     label="Tutorial"           sub="Walkthrough of key features"        onClick={() => nav.push('tutorial')}/>
           <Divider inset={48}/>
-          <ProfileLink icon="help" label="Help & support"/>
+          <ProfileLink icon="help"    label="Help & support"/>
           <Divider inset={48}/>
-          <ProfileLink icon="logout" label="Sign out" danger onClick={() => nav.push('login')}/>
+          <ProfileLink icon="logout"  label="Sign out"           danger onClick={() => nav.push('login')}/>
         </div>
 
+        {/* Demo */}
         <div className="m-cap" style={{ marginBottom: 8, paddingLeft: 4 }}>Demo</div>
         <div className="m-card" style={{ padding: '4px 16px', marginBottom: 16, border: `1px solid ${M.line}` }}>
           <div className="m-tap" onClick={() => setShowReset(true)} style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 0' }}>
@@ -2924,12 +3126,11 @@ function ScreenProfile() {
           </div>
         </div>
 
-        <div style={{ textAlign: 'center', fontSize: 11, color: M.ink4, padding: '12px 0 24px' }}>
-          munni · v1.0.0 · build 248
-        </div>
+        <div style={{ textAlign: 'center', fontSize: 11, color: M.ink4, padding: '12px 0 24px' }}>munni · v1.0.0 · build 248</div>
       </div>
 
       <TabBar active="profile" onChange={(t) => nav.switchTab(t)}/>
+
       {showReset && (
         <Sheet onClose={() => setShowReset(false)}>
           <div style={{ padding:'0 4px 8px' }}>
@@ -2942,6 +3143,64 @@ function ScreenProfile() {
               Reset everything
             </button>
             <button onClick={() => setShowReset(false)}
+              style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
+              Cancel
+            </button>
+          </div>
+        </Sheet>
+      )}
+
+      {showDeleteProfile && (
+        <Sheet onClose={() => setShowDeleteProfile(null)}>
+          <div style={{ padding:'4px 4px 8px' }}>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:8 }}>Delete "{showDeleteProfile.name}"?</div>
+            <div style={{ fontSize:14, color:M.ink3, lineHeight:1.5, marginBottom:20 }}>
+              This profile will be permanently removed. Transactions linked to it will remain but the profile can no longer be selected.
+            </div>
+            <button onClick={() => deleteProfile(showDeleteProfile.id)}
+              style={{ width:'100%', padding:'14px 0', background:M.clay, color:'#fff', border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, marginBottom:10 }}>
+              Delete profile
+            </button>
+            <button onClick={() => setShowDeleteProfile(null)}
+              style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
+              Cancel
+            </button>
+          </div>
+        </Sheet>
+      )}
+
+      {showNewProfile && (
+        <Sheet onClose={() => setShowNewProfile(false)}>
+          <div style={{ padding:'4px 4px 8px' }}>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>Create profile</div>
+            <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Profile name</div>
+            <input
+              autoFocus
+              value={newProfileDraft.name}
+              onChange={e => setNewProfileDraft(d => ({ ...d, name: e.target.value }))}
+              placeholder="e.g. Business, Savings…"
+              style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box', marginBottom:16 }}
+            />
+            <div style={{ fontSize:12, color:M.ink3, marginBottom:8 }}>Profile type</div>
+            <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+              {[
+                { value:'bank',    label:'Connect bank',     icon:'card',  desc:'Link via Open Banking' },
+                { value:'savings', label:'Saving account',   icon:'piggy', desc:'Manual savings pot' },
+              ].map(opt => (
+                <div key={opt.value} className="m-tap" onClick={() => setNewProfileDraft(d => ({ ...d, type: opt.value }))}
+                  style={{ flex:1, padding:'14px 12px', borderRadius:12, border:`2px solid ${newProfileDraft.type === opt.value ? M.sage : M.line}`,
+                    background: newProfileDraft.type === opt.value ? M.sageSoft : M.paper2, textAlign:'center' }}>
+                  <I name={opt.icon} size={20} color={newProfileDraft.type === opt.value ? M.sage : M.ink3}/>
+                  <div style={{ fontSize:12, fontWeight:600, marginTop:6, color: newProfileDraft.type === opt.value ? M.sage : M.ink }}>{opt.label}</div>
+                  <div style={{ fontSize:10, color:M.ink3, marginTop:2 }}>{opt.desc}</div>
+                </div>
+              ))}
+            </div>
+            <button onClick={createProfile}
+              style={{ width:'100%', padding:'14px 0', background:newProfileDraft.name.trim() ? M.sage : M.line, color:newProfileDraft.name.trim() ? '#fff' : M.ink4, border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:newProfileDraft.name.trim()?'pointer':'default', fontFamily:M.fontUI, marginBottom:10 }}>
+              Create &amp; {newProfileDraft.type === 'bank' ? 'connect bank' : 'set up savings'}
+            </button>
+            <button onClick={() => setShowNewProfile(false)}
               style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
               Cancel
             </button>
@@ -3649,15 +3908,16 @@ function ScreenNotifications() {
   const [syncing, setSyncing] = React.useState(false);
   const [lastSynced, setLastSynced] = React.useState(null);
   const [newCount, setNewCount] = React.useState(0);
+  const [syncedReviewCount, setSyncedReviewCount] = React.useState(0);
 
   const MERCHANTS_POOL = [
-    { merchant:'Albert Heijn', desc:'AH 5821', cat:'groceries', min:8, max:85 },
-    { merchant:'Koffie ☕', desc:'TOKI ESPRESSO', cat:'coffee', min:3, max:6 },
-    { merchant:'NS · Sprinter', desc:'NS REIZIGERS', cat:'transportPublic', min:4, max:28 },
-    { merchant:'Etos', desc:'ETOS 0341', cat:'toiletry', min:5, max:35 },
-    { merchant:'Vapiano', desc:'VAPIANO 1234', cat:'restaurants', min:12, max:38 },
-    { merchant:'Coolblue', desc:'COOLBLUE ORDER', cat:'electronics', min:29, max:199, confidence:55, needsReview:true },
-    { merchant:'Apotheek Centraal', desc:'APOTHEEK 7842', cat:'prescription', min:8, max:40, confidence:58, needsReview:true },
+    { merchant:'Albert Heijn',       desc:'AH 5821',        cat:'groceries',       min:8,  max:85,  needsReview:true },
+    { merchant:'Koffie ☕',          desc:'TOKI ESPRESSO',  cat:'coffee',          min:3,  max:6,   needsReview:true },
+    { merchant:'NS · Sprinter',      desc:'NS REIZIGERS',   cat:'transportPublic', min:4,  max:28,  needsReview:true },
+    { merchant:'Etos',               desc:'ETOS 0341',      cat:'healthcare',      min:5,  max:35,  confidence:60, needsReview:true },
+    { merchant:'Vapiano',            desc:'VAPIANO 1234',   cat:'restaurants',     min:12, max:38,  needsReview:true },
+    { merchant:'Coolblue',           desc:'COOLBLUE ORDER', cat:'electronics',     min:29, max:199, confidence:55, needsReview:true },
+    { merchant:'Apotheek Centraal',  desc:'APOTHEEK 7842',  cat:'prescription',    min:8,  max:40,  confidence:58, needsReview:true },
   ];
 
   const handleSync = () => {
@@ -3669,10 +3929,11 @@ function ScreenNotifications() {
         const pool = MERCHANTS_POOL[Math.floor(Math.random() * MERCHANTS_POOL.length)];
         const amt = -(Math.round((pool.min + Math.random() * (pool.max - pool.min)) * 100) / 100);
         const id = `tsync_${Date.now()}_${i}`;
-        return { id, date: '2026-02-18', time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`, merchant: pool.merchant, desc: pool.desc, cat: pool.cat, amount: amt, account: 'main', ...(pool.confidence ? { confidence: pool.confidence } : {}), ...(pool.needsReview ? { needsReview: true } : {}) };
+        return { id, date: '2026-02-18', time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`, merchant: pool.merchant, desc: pool.desc, cat: pool.cat, amount: amt, account: 'main', needsReview: true, ...(pool.confidence ? { confidence: pool.confidence } : {}) };
       });
       addTxs(newTxs);
       setNewCount(count);
+      setSyncedReviewCount(count);
       setLastSynced(now.toLocaleTimeString('en-NL', { hour:'2-digit', minute:'2-digit' }));
       setSyncing(false);
     }, 1200);
@@ -3692,7 +3953,7 @@ function ScreenNotifications() {
             </div>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:15, fontWeight:600 }}>Bank sync</div>
-              <div style={{ fontSize:12, color:M.ink3, marginTop:2 }}>{lastSynced ? `Last synced at ${lastSynced} · ${newCount} new` : 'Pull latest transactions from your bank'}</div>
+              <div style={{ fontSize:12, color:M.ink3, marginTop:2 }}>{lastSynced ? `Last synced at ${lastSynced} · ${newCount} added · ${syncedReviewCount} need review` : 'Pull latest transactions from your bank'}</div>
             </div>
           </div>
           <button className="m-btn sage m-tap" style={{ width:'100%' }} onClick={handleSync} disabled={syncing}>
@@ -3703,8 +3964,18 @@ function ScreenNotifications() {
             )}
           </button>
           {newCount > 0 && (
-            <div style={{ marginTop:10, padding:'8px 12px', borderRadius:10, background:M.sageSoft, fontSize:12, color:M.sage, fontWeight:500 }}>
-              {newCount} new transaction{newCount > 1 ? 's' : ''} added — {txs.filter(t => t.needsReview).length > 0 ? 'some need review' : 'all categorised'}
+            <div style={{ marginTop:10, borderRadius:10, overflow:'hidden', border:`1px solid ${M.ochreSoft}` }}>
+              <div style={{ padding:'8px 12px', background:M.ochreSoft, fontSize:12, color:M.ochre, fontWeight:500 }}>
+                {newCount} transaction{newCount > 1 ? 's' : ''} synced — {syncedReviewCount} need review
+              </div>
+              <button className="m-tap" onClick={() => nav.push('reviewSwipe')} style={{
+                width:'100%', padding:'9px 12px', background:'#fff', border:'none', borderTop:`1px solid ${M.line2}`,
+                display:'flex', alignItems:'center', gap:8, fontSize:12, fontWeight:600, color:M.ochre, cursor:'pointer',
+              }}>
+                <I name="sliders" size={13} color={M.ochre}/>
+                Review now
+                <I name="arrowR" size={12} color={M.ochre} style={{ marginLeft:'auto' }}/>
+              </button>
             </div>
           )}
         </div>
@@ -3748,62 +4019,273 @@ function SettingToggle({ label, sub, on: onProp }) {
   );
 }
 
+const DUTCH_BANKS = [
+  { id:'abn',      name:'ABN AMRO',     country:'NL', bic:'ABNANL2A',  color:'#009B77', logo:'🏦' },
+  { id:'ing',      name:'ING',          country:'NL', bic:'INGBNL2A',  color:'#FF6200', logo:'🦁' },
+  { id:'rabo',     name:'Rabobank',     country:'NL', bic:'RABONL2U',  color:'#004A97', logo:'🏛' },
+  { id:'sns',      name:'SNS Bank',     country:'NL', bic:'SNSBNL2A',  color:'#E30613', logo:'🏦' },
+  { id:'asn',      name:'ASN Bank',     country:'NL', bic:'ASNBNL21',  color:'#00A651', logo:'🌿' },
+  { id:'triodos',  name:'Triodos Bank', country:'NL', bic:'TRIONL2U',  color:'#00A651', logo:'♻️' },
+  { id:'bunq',     name:'Bunq',         country:'NL', bic:'BUNQNL2A',  color:'#00D4A1', logo:'💚' },
+  { id:'knab',     name:'Knab',         country:'NL', bic:'KNABNL2H',  color:'#E40046', logo:'💡' },
+  { id:'regio',    name:'RegioBank',    country:'NL', bic:'RBRBNL21',  color:'#0070BA', logo:'🏦' },
+  { id:'revolut',  name:'Revolut',      country:'EU', bic:'REVOLT21',  color:'#191C20', logo:'🔷' },
+  { id:'n26',      name:'N26',          country:'EU', bic:'NTSBDEB1',  color:'#000000', logo:'⬛' },
+  { id:'wise',     name:'Wise',         country:'EU', bic:'TRWIBEB1',  color:'#9FE870', logo:'🌍' },
+];
+
 function ScreenAccounts() {
   const nav = useNav();
+  const [connectedAccounts, setConnectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [bankSearch, setBankSearch] = React.useState('');
+  const [selectedBank, setSelectedBank] = useLocalStorage('munni_selected_bank', null);
+  const [psd2Step, setPsd2Step] = React.useState(null); // null | 'login' | 'consent' | 'connecting' | 'done'
+  const [psd2Bank, setPsd2Bank] = React.useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(null);
+
+  const filteredBanks = DUTCH_BANKS.filter(b =>
+    !bankSearch || b.name.toLowerCase().includes(bankSearch.toLowerCase())
+  );
+
+  const startBankConnect = (bank) => {
+    setPsd2Bank(bank);
+    setSelectedBank(bank.id);
+    setPsd2Step('login');
+    setShowAdd(false);
+  };
+
+  const advancePsd2 = () => {
+    if (psd2Step === 'login') setPsd2Step('consent');
+    else if (psd2Step === 'consent') { setPsd2Step('connecting'); setTimeout(() => setPsd2Step('done'), 1800); }
+    else if (psd2Step === 'done') setPsd2Step(null);
+  };
+
+  const confirmDelete = (acct) => {
+    setConnectedAccounts(a => a.filter(x => x.id !== acct.id));
+    setShowDeleteConfirm(null);
+  };
+
+  if (psd2Step) {
+    return (
+      <div className="m-screen">
+        <StatusBar/>
+        <AppBar title={psd2Bank?.name || 'Connect bank'}
+          leading={psd2Step !== 'connecting' ? <button className="m-iconbtn m-tap" onClick={() => setPsd2Step(null)}><I name="x" size={20}/></button> : null}
+        />
+        <div style={{ flex:1, display:'flex', flexDirection:'column', padding:'24px 24px 32px', gap:20, overflowY:'auto' }}>
+          {psd2Step === 'login' && (
+            <>
+              <div style={{ textAlign:'center', marginBottom:8 }}>
+                <div style={{ fontSize:36, marginBottom:8 }}>{psd2Bank?.logo}</div>
+                <div style={{ fontSize:17, fontWeight:700 }}>{psd2Bank?.name}</div>
+                <div style={{ fontSize:12, color:M.ink3, marginTop:4 }}>Sign in with your {psd2Bank?.name} credentials to continue</div>
+              </div>
+              <div>
+                <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Username / Customer number</div>
+                <input defaultValue="demo.user@munni.app" style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box' }}/>
+              </div>
+              <div>
+                <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Password</div>
+                <input type="password" defaultValue="••••••••" style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box' }}/>
+              </div>
+              <div style={{ padding:'12px 14px', borderRadius:10, background:M.sageSoft, display:'flex', gap:10, alignItems:'flex-start' }}>
+                <I name="lock" size={16} color={M.sage}/>
+                <div style={{ fontSize:12, color:M.ink2, lineHeight:1.45 }}>
+                  munni uses <strong>PSD2 Open Banking</strong>. Your credentials are sent directly to {psd2Bank?.name} — we never store them.
+                </div>
+              </div>
+              <button className="m-btn sage m-tap" onClick={advancePsd2} style={{ marginTop:'auto' }}>Continue to {psd2Bank?.name}</button>
+            </>
+          )}
+          {psd2Step === 'consent' && (
+            <>
+              <div style={{ textAlign:'center', marginBottom:8 }}>
+                <div style={{ fontSize:36, marginBottom:8 }}>{psd2Bank?.logo}</div>
+                <div style={{ fontSize:17, fontWeight:700 }}>Allow access?</div>
+                <div style={{ fontSize:12, color:M.ink3, marginTop:4 }}>munni requests read-only access to:</div>
+              </div>
+              <div className="m-card" style={{ padding:'4px 16px', border:`1px solid ${M.line}` }}>
+                {[
+                  { icon:'card', label:'Account information', sub:'IBAN, name, balance' },
+                  { icon:'receipt', label:'Transaction history', sub:'Last 13 months · read-only' },
+                ].map((item, i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 && <Divider inset={48}/>}
+                    <div style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+                      <div style={{ width:36, height:36, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <I name={item.icon} size={16} color={M.sage}/>
+                      </div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:14, fontWeight:500 }}>{item.label}</div>
+                        <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{item.sub}</div>
+                      </div>
+                      <I name="check" size={16} color={M.sage}/>
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+              <div style={{ fontSize:12, color:M.ink3, textAlign:'center', lineHeight:1.5 }}>
+                munni can <strong>never initiate payments</strong>. You can revoke access at any time.
+              </div>
+              <button className="m-btn sage m-tap" onClick={advancePsd2} style={{ marginTop:'auto' }}>Authorise access</button>
+              <button className="m-btn outline m-tap" onClick={() => setPsd2Step(null)}>Cancel</button>
+            </>
+          )}
+          {psd2Step === 'connecting' && (
+            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, textAlign:'center' }}>
+              <div style={{ fontSize:36 }}>{psd2Bank?.logo}</div>
+              <div style={{ display:'flex', gap:8 }}>
+                {[0,1,2].map(i => <div key={i} style={{ width:8, height:8, borderRadius:999, background:M.sage, animation:`pulse 1.2s ease-in-out ${i*0.4}s infinite` }}/>)}
+              </div>
+              <div style={{ fontSize:15, fontWeight:600 }}>Connecting to {psd2Bank?.name}…</div>
+              <div style={{ fontSize:12, color:M.ink3 }}>Fetching your accounts and transactions</div>
+            </div>
+          )}
+          {psd2Step === 'done' && (
+            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, textAlign:'center' }}>
+              <div style={{ width:80, height:80, borderRadius:24, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <I name="check" size={36} color={M.sage} stroke={2.5}/>
+              </div>
+              <div className="m-h2">Connected!</div>
+              <div style={{ fontSize:13, color:M.ink3, lineHeight:1.5, maxWidth:260 }}>
+                {psd2Bank?.name} is now connected. Transactions will sync automatically.
+              </div>
+              <button className="m-btn sage m-tap" onClick={advancePsd2} style={{ marginTop:8 }}>Done</button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="m-screen">
       <StatusBar/>
       <AppBar title="Bank accounts"
         leading={<button className="m-iconbtn m-tap" onClick={() => nav.pop()}><I name="arrowL" size={20}/></button>}
-        trailing={<button className="m-iconbtn m-tap"><I name="plus" size={20}/></button>}
+        trailing={<button className="m-iconbtn m-tap" onClick={() => setShowAdd(true)}><I name="plus" size={20}/></button>}
       />
       <div className="m-body-scroll">
-        <div className="m-card" style={{ padding:18, marginBottom:16, border:`1px solid ${M.line}` }}>
-          <div className="m-cap">Combined balance</div>
-          <div className="m-num" style={{ fontSize:32, fontWeight:600, fontFamily:M.fontDisp, marginTop:4 }}>
-            {fmtEur(ACCOUNTS.reduce((s, a) => s + a.balance, 0))}
-          </div>
-          <div style={{ fontSize:12, color:M.ink3, marginTop:2 }}>across {ACCOUNTS.length} accounts</div>
-        </div>
-
         <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>Connected accounts</div>
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-          {ACCOUNTS.map(a => {
+        <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
+          {connectedAccounts.map((a, i) => {
             const isSavings = a.type === 'savings';
+            const isInvest = a.type === 'invest';
             return (
-              <div key={a.id} className="m-card m-tap" onClick={() => isSavings && nav.push('savingsDetail', { id: a.id })}
-                style={{ border:`1px solid ${M.line}`, padding:16, display:'flex', alignItems:'center', gap:12 }}>
-                <div style={{ width:38, height:38, borderRadius:10, background:a.color, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <I name={isSavings?'piggy':a.type==='invest'?'rocket':'card'} size={18} color="#fff"/>
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:14, fontWeight:600 }}>{a.name}</div>
-                  <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:2 }}>
-                    <div style={{ fontSize:11, color:M.ink3, fontFamily:M.fontMono }}>{a.iban}</div>
-                    {isSavings && <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.ochreSoft, color:M.ochre, textTransform:'uppercase', letterSpacing:'0.04em' }}>Manual</span>}
+              <React.Fragment key={a.id}>
+                {i > 0 && <Divider inset={50}/>}
+                <div className="m-tap" onClick={() => isSavings && nav.push('savingsDetail', { id: a.id })}
+                  style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+                  <div style={{ width:38, height:38, borderRadius:10, background:a.color, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <I name={isSavings?'piggy':isInvest?'rocket':'card'} size={18} color="#fff"/>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight:600 }}>{a.name}</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:2 }}>
+                      <div style={{ fontSize:11, color:M.ink3, fontFamily:M.fontMono }}>{a.iban}</div>
+                      {a.readOnly && <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.ochreSoft, color:M.ochre, textTransform:'uppercase', letterSpacing:'0.04em' }}>Read-only</span>}
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    <div className="m-num" style={{ fontSize:15, fontWeight:600 }}>{fmtEur(a.balance)}</div>
+                    <button className="m-tap" onClick={e => { e.stopPropagation(); setShowDeleteConfirm(a); }}
+                      style={{ background:'none', border:'none', padding:4, cursor:'pointer' }}>
+                      <I name="x" size={14} color={M.ink4}/>
+                    </button>
                   </div>
                 </div>
-                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <div className="m-num" style={{ fontSize:16, fontWeight:600 }}>{fmtEur(a.balance)}</div>
-                  {isSavings && <I name="caretR" size={14} color={M.ink4}/>}
-                </div>
-              </div>
+              </React.Fragment>
             );
           })}
+          <Divider inset={0}/>
+          <div className="m-tap" onClick={() => setShowAdd(true)} style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+            <div style={{ width:38, height:38, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <I name="plus" size={16} color={M.sage}/>
+            </div>
+            <div style={{ flex:1, fontSize:14, fontWeight:600, color:M.sage }}>Connect a bank</div>
+            <I name="caretR" size={14} color={M.ink4}/>
+          </div>
         </div>
 
-        <div style={{ marginTop:16, padding:16, borderRadius:14, background:M.sageSoft, display:'flex', gap:12, alignItems:'flex-start' }}>
+        <div style={{ padding:'12px 16px', borderRadius:14, background:M.sageSoft, display:'flex', gap:12, alignItems:'flex-start' }}>
           <I name="lock" size={18} color={M.sage}/>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:M.sage }}>Read-only access</div>
+            <div style={{ fontSize:13, fontWeight:600, color:M.sage }}>Read-only · PSD2 Open Banking</div>
             <div style={{ fontSize:12, color:M.ink2, marginTop:4, lineHeight:1.45 }}>
-              munni uses Open Banking to read your transactions. We can never move money on your behalf.
+              munni reads transactions via Open Banking. We can never move money on your behalf.
             </div>
           </div>
         </div>
         <div style={{ height:8 }}/>
       </div>
+
+      {showAdd && (
+        <Sheet onClose={() => setShowAdd(false)}>
+          <div style={{ padding:'4px 20px 32px' }}>
+            <div className="m-h2" style={{ marginBottom:12 }}>Connect a bank</div>
+            <div style={{ position:'relative', marginBottom:12 }}>
+              <I name="search" size={16} color={M.ink4} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}/>
+              <input
+                autoFocus
+                value={bankSearch}
+                onChange={e => setBankSearch(e.target.value)}
+                placeholder="Search banks…"
+                style={{ width:'100%', padding:'10px 12px 10px 36px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box' }}
+              />
+            </div>
+            <div className="m-card" style={{ padding:'4px 16px', border:`1px solid ${M.line}`, maxHeight:340, overflowY:'auto' }}>
+              {filteredBanks.length === 0 && (
+                <div style={{ padding:'20px 0', textAlign:'center', color:M.ink3, fontSize:13 }}>No banks found</div>
+              )}
+              {filteredBanks.map((bank, i) => {
+                const isConnected = connectedAccounts.some(a => a.name.toLowerCase().includes(bank.name.toLowerCase()));
+                const isSelected = selectedBank === bank.id;
+                return (
+                  <React.Fragment key={bank.id}>
+                    {i > 0 && <Divider inset={48}/>}
+                    <div className="m-tap" onClick={() => !isConnected && startBankConnect(bank)}
+                      style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0', opacity: isConnected ? 0.5 : 1 }}>
+                      <div style={{ width:36, height:36, borderRadius:10, background:bank.color+'22', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:18 }}>
+                        {bank.logo}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:14, fontWeight:500 }}>
+                          <HighlightText text={bank.name} query={bankSearch}/>
+                        </div>
+                        <div style={{ fontSize:11, color:M.ink3, marginTop:1, fontFamily:M.fontMono }}>{bank.bic}</div>
+                      </div>
+                      {isConnected
+                        ? <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999, background:M.sageSoft, color:M.sage, textTransform:'uppercase' }}>Connected</span>
+                        : <I name="caretR" size={14} color={M.ink4}/>
+                      }
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+        </Sheet>
+      )}
+
+      {showDeleteConfirm && (
+        <Sheet onClose={() => setShowDeleteConfirm(null)}>
+          <div style={{ padding:'4px 20px 32px' }}>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:8 }}>Remove account?</div>
+            <div style={{ fontSize:14, color:M.ink3, lineHeight:1.5, marginBottom:20 }}>
+              <strong>{showDeleteConfirm.name}</strong> will be disconnected. Historical transactions will remain but new syncing will stop.
+            </div>
+            <button onClick={() => confirmDelete(showDeleteConfirm)}
+              style={{ width:'100%', padding:'14px 0', background:M.clay, color:'#fff', border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, marginBottom:10 }}>
+              Remove account
+            </button>
+            <button onClick={() => setShowDeleteConfirm(null)}
+              style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
+              Cancel
+            </button>
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }
@@ -3820,7 +4302,7 @@ function ScreenSavings() {
         leading={<button className="m-iconbtn m-tap" onClick={() => nav.pop()}><I name="arrowL" size={20}/></button>}
       />
       <div className="m-body-scroll" style={{padding:'0 16px'}}>
-        <div style={{padding:'20px 0 8px', fontSize:28, fontWeight:700, color:M.sage, fontFamily:M.fontDisp}} className="m-num">
+        <div style={{padding:'20px 0 8px', fontSize:28, fontWeight:700, color:M.ochre, fontFamily:M.fontDisp}} className="m-num">
           {fmtEur(total)}
         </div>
         <div style={{color:M.ink3, fontSize:13, marginBottom:20}}>Total saved this period</div>
@@ -3916,6 +4398,72 @@ function ScreenSavingsDetail({ params }) {
           </div>
         </Sheet>
       )}
+    </div>
+  );
+}
+
+function ScreenSavingAccounts() {
+  const nav = useNav();
+  const { txs } = useTxCtx();
+  const savingAccounts = ACCOUNTS.filter(a => a.type === 'savings' || a.type === 'invest');
+  const [disabled, setDisabled] = useLocalStorage('munni_disabled_save_accounts', []);
+
+  const toggleDisabled = (id) => setDisabled(ds => ds.includes(id) ? ds.filter(x => x !== id) : [...ds, id]);
+
+  return (
+    <div className="m-screen">
+      <StatusBar/>
+      <AppBar title="Saving accounts"
+        leading={<button className="m-iconbtn m-tap" onClick={() => nav.pop()}><I name="arrowL" size={20}/></button>}
+        trailing={<button className="m-iconbtn m-tap" onClick={() => nav.push('accounts')}><I name="plus" size={20}/></button>}
+      />
+      <div className="m-body-scroll">
+        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>Accounts</div>
+        <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
+          {savingAccounts.map((a, i) => {
+            const isDisabled = disabled.includes(a.id);
+            const acctTxs = txs.filter(t => t.savingAccount === a.id);
+            const total = acctTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            return (
+              <React.Fragment key={a.id}>
+                {i > 0 && <Divider inset={50}/>}
+                <div className="m-tap" onClick={() => nav.push('savingsDetail', { id: a.id })}
+                  style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 0', opacity: isDisabled ? 0.5 : 1 }}>
+                  <div style={{ width:40, height:40, borderRadius:12, background:a.color, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <I name={a.type==='invest'?'rocket':'piggy'} size={18} color="#fff"/>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight:600 }}>{a.name}</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:2 }}>
+                      <div style={{ fontSize:11, color:M.ink3, fontFamily:M.fontMono }}>{a.iban}</div>
+                      {isDisabled && <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.line2, color:M.ink3, textTransform:'uppercase' }}>Read-only</span>}
+                    </div>
+                    <div style={{ fontSize:11, color:M.ink3, marginTop:2 }}>{acctTxs.length} transfer{acctTxs.length !== 1 ? 's' : ''} · {fmtEur(total)} saved</div>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
+                    <div className="m-num" style={{ fontSize:15, fontWeight:600 }}>{fmtEur(a.balance)}</div>
+                    <button className="m-tap" onClick={e => { e.stopPropagation(); toggleDisabled(a.id); }}
+                      style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999,
+                        background: isDisabled ? M.ochreSoft : M.sageSoft,
+                        color: isDisabled ? M.ochre : M.sage,
+                        border: 'none', cursor:'pointer', fontFamily:M.fontUI }}>
+                      {isDisabled ? 'Enable' : 'Disable'}
+                    </button>
+                  </div>
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        <div style={{ padding:'12px 14px', borderRadius:12, background:M.sageSoft, display:'flex', gap:10, alignItems:'flex-start', marginBottom:8 }}>
+          <I name="lock" size={16} color={M.sage}/>
+          <div style={{ fontSize:12, color:M.ink2, lineHeight:1.5 }}>
+            Saving accounts are the source of truth for all profiles. <strong>Disabling</strong> a saving account makes it read-only — no new transactions will be tracked to it.
+          </div>
+        </div>
+        <div style={{ height:8 }}/>
+      </div>
     </div>
   );
 }
@@ -4810,7 +5358,7 @@ function useLocalStorage(key, defaultValue) {
   return [state, set];
 }
 
-const STORAGE_KEYS = ['munni_txs','munni_recur','munni_topics','munni_pOffset','munni_customCats','munni_dark','munni_profile_name','munni_profile_email','munni_integrations'];
+const STORAGE_KEYS = ['munni_txs','munni_recur','munni_topics','munni_pOffset','munni_customCats','munni_dark','munni_profile_name','munni_profile_email','munni_integrations','munni_bank_accounts','munni_selected_bank','munni_profiles','munni_disabled_save_accounts'];
 function clearAllStorage() { STORAGE_KEYS.forEach(k => localStorage.removeItem(k)); }
 
 const CatCtx = React.createContext(null);
@@ -4825,7 +5373,7 @@ const useCatCtx = () => React.useContext(CatCtx);
 // ── Transaction + Recurring context ────────────────────────────
 const TxCtx = React.createContext(null);
 function TxProvider({ children }) {
-  const [txs, setTxs] = useLocalStorage('munni_txs', () => TRANSACTIONS.slice());
+  const [txs, setTxs] = useLocalStorage('munni_txs', () => [...TRANSACTIONS, ...GEN_TXS]);
   const updateTx = (id, changes) => setTxs(ts => ts.map(t => t.id === id ? {...t, ...changes} : t));
   const addTxs = (newTxs) => setTxs(ts => [...newTxs, ...ts]);
   return <TxCtx.Provider value={{ txs, setTxs, updateTx, addTxs }}>{children}</TxCtx.Provider>;
@@ -5947,16 +6495,21 @@ function ScreenReviewSwipe() {
   };
 
   if (queue.length === 0 || done) {
+    const hasSkipped = skipped.size > 0;
     return (
       <div className="m-screen">
         <StatusBar/>
         <AppBar title="Review" leading={<button className="m-iconbtn m-tap" onClick={() => nav.pop()}><I name="arrowL" size={20}/></button>}/>
         <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:32, textAlign:'center', gap:12 }}>
-          <div style={{ width:80, height:80, borderRadius:24, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <I name="check" size={36} color={M.sage} stroke={2.5}/>
+          <div style={{ width:80, height:80, borderRadius:24, background:hasSkipped ? M.ochreSoft : M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <I name={hasSkipped ? 'alert' : 'check'} size={36} color={hasSkipped ? M.ochre : M.sage} stroke={2.5}/>
           </div>
-          <div className="m-h2" style={{ marginTop:8 }}>All caught up</div>
-          <div style={{ fontSize:14, color:M.ink3, lineHeight:1.5, maxWidth:260 }}>Nice work. We'll let you know when new transactions need a quick review.</div>
+          <div className="m-h2" style={{ marginTop:8 }}>{hasSkipped ? 'Review paused' : 'All caught up'}</div>
+          <div style={{ fontSize:14, color:M.ink3, lineHeight:1.5, maxWidth:260 }}>
+            {hasSkipped
+              ? `${skipped.size} transaction${skipped.size > 1 ? 's' : ''} skipped — they'll be waiting here next time you review.`
+              : "Nice work. We'll let you know when new transactions need a quick review."}
+          </div>
           <button className="m-btn m-tap" style={{ marginTop:16 }} onClick={() => nav.pop()}>Done</button>
         </div>
       </div>
@@ -7164,6 +7717,7 @@ const SCREEN_REGISTRY = {
   integrationReceipts: ({params}) => <ScreenIntegrationReceipts params={params}/>,
   savings:        () => <ScreenSavings/>,
   savingsDetail:  ({params}) => <ScreenSavingsDetail params={params}/>,
+  savingAccounts: () => <ScreenSavingAccounts/>,
   settings:       () => <ScreenSettings/>,
   income:         () => <ScreenIncome/>,
   invested:       () => <ScreenInvested/>,
