@@ -2029,10 +2029,6 @@ function ScreenTxDetail({ params }) {
 
   const initCats = () => tx.cats ? tx.cats.slice() : [{ catId: tx.cat, amount: Math.abs(tx.amount) }];
   const [txCats, setTxCats] = React.useState(initCats);
-  // Sync txCats when tx.cats changes in context (e.g. after saving account attach)
-  React.useEffect(() => {
-    setTxCats(tx.cats ? tx.cats.slice() : [{ catId: tx.cat, amount: Math.abs(tx.amount) }]);
-  }, [tx.cats, tx.cat]);
   const [noteText, setNoteText] = React.useState(tx.note || '');
   // Derive from live tx so store/photo receipt additions are reflected immediately
   const hasReceiptState = tx.hasReceipt || false;
@@ -2267,7 +2263,9 @@ function ScreenTxDetail({ params }) {
                   <React.Fragment key={a.id}>
                     <div className="m-tap" onClick={() => {
                       const newCat = tx.amount < 0 ? 'savingDeposit' : 'savingWithdraw';
-                      updateTx(tx.id, { savingAccount: a.id, cat: newCat, cats: [{ catId: newCat, amount: Math.abs(tx.amount) }] });
+                      const newCats = [{ catId: newCat, amount: Math.abs(tx.amount) }];
+                      updateTx(tx.id, { savingAccount: a.id, cat: newCat, cats: newCats });
+                      setTxCats(newCats);
                       setShowSavingPicker(false);
                     }} style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
                       <div style={{ width:36, height:36, borderRadius:10, background:a.color, display:'flex', alignItems:'center', justifyContent:'center' }}>
