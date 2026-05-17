@@ -1219,6 +1219,8 @@ if (typeof document !== 'undefined' && !document.getElementById('m-nav-styles'))
     @keyframes mSheetUp { from { transform: translateY(100%); } to { transform: none; } }
     @keyframes pulse { 0%,100% { opacity:0.3; transform:scale(0.8); } 50% { opacity:1; transform:scale(1); } }
     @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    @keyframes barRise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+    .m-bar-animate { transform-origin: bottom; animation: barRise 0.4s cubic-bezier(0.34,1.56,0.64,1) both; }
   `;
   document.head.appendChild(s);
 }
@@ -1284,7 +1286,8 @@ function BarChart({ data, labels, width = 280, height = 96, highlightLast = true
         return (
           <g key={i} style={{ cursor: onSelect ? 'pointer' : 'default' }} onClick={() => onSelect && onSelect(i)}>
             <rect x={x - 3} y={valueH} width={barW + 6} height={barAreaH} rx={0} fill="transparent"/>
-            <rect x={x} y={y} width={barW} height={h} rx={3} fill={barColor} opacity={opacity}/>
+            <rect x={x} y={y} width={barW} height={h} rx={3} fill={barColor} opacity={opacity}
+              style={{ transformOrigin: `${x + barW/2}px ${valueH + barAreaH}px`, animation: `barRise 0.4s cubic-bezier(0.34,1.56,0.64,1) ${i * 0.04}s both` }}/>
             {showValues && v > 0 && (
               <text x={x + barW / 2} y={valueH - 2} fontSize="8" fill={isSel || (selected < 0 && isLast) ? accent : color} textAnchor="middle" fontFamily="-apple-system,system-ui" fontWeight="600" opacity={opacity < 0.5 ? 0.5 : 1}>
                 {v >= 1000 ? `€${(v/1000).toFixed(1)}k` : `€${Math.round(v)}`}
@@ -1360,6 +1363,7 @@ function StackedBar({ segments, height = 8, radius = 999 }) {
           width: `${(s.value / total) * 100}%`,
           background: s.color,
           borderRight: i < segments.length - 1 ? `1.5px solid ${M.paper}` : 'none',
+          transition: 'width 0.35s ease',
         }}/>
       ))}
     </div>
@@ -1387,7 +1391,12 @@ function LineChart({ data, width = 320, height = 120, color = M.sage, fill = 'rg
 }
 
 function TxRow({ tx, onClick, showCat = true, showDate = false, dense = false, highlight = '' }) {
-  const cat = CATEGORIES[tx.cat] || _catExt[tx.cat] || {};
+  // Fix undefined categories for saving transactions
+  let effectiveCat = tx.cat;
+  if (tx.savingAccount && (!effectiveCat || effectiveCat === 'savings' || (!CATEGORIES[effectiveCat] && !_catExt[effectiveCat]))) {
+    effectiveCat = tx.amount < 0 ? 'savingDeposit' : 'savingWithdraw';
+  }
+  const cat = CATEGORIES[effectiveCat] || _catExt[effectiveCat] || CATEGORIES[tx.cat] || _catExt[tx.cat] || {};
   const { txs: allTxs } = useTxCtx();
   const positive = tx.amount > 0;
   const isLinkedReimburse = tx.linkedTo;
@@ -1462,6 +1471,10 @@ function ScreenHome() {
   const nav = useNav();
   const alloc = useAlloc();
   const { txs } = useTxCtx();
+  const { profiles, setProfiles } = useProfiles();
+  const [homeCards] = useLocalStorage('munni_home_cards', HOME_CARDS_DEFAULT);
+  const [showProfileSwitcher, setShowProfileSwitcher] = React.useState(false);
+
   const reviewCount = txs.filter(t => t.needsReview).length;
   const budgetTop = [...BUDGETS].sort((a, b) => (b.spent/b.total) - (a.spent/a.total)).slice(0, 3);
   const [pidx, setPidx] = React.useState(PERIOD_HISTORY.length - 1);
@@ -1469,79 +1482,39 @@ function ScreenHome() {
   const isCurrent = pidx === PERIOD_HISTORY.length - 1;
   const currentUnallocated = alloc ? alloc.unallocated : pd.unallocated;
 
-  // Compute period savings
+  const activeProfile = profiles.find(p => p.active) || profiles[0];
+
+  // Compute period values from txs
   const periodTxs = React.useMemo(() => {
     if (!txs) return [];
     const { start, end } = pd;
     if (!start || !end) return txs;
     return txs.filter(t => t.date >= start && t.date <= end);
   }, [txs, pd]);
+  const periodIncome  = React.useMemo(() => periodTxs.filter(t => t.amount > 0).reduce((s,t) => s + t.amount, 0), [periodTxs]);
+  const periodExpense = React.useMemo(() => periodTxs.filter(t => t.amount < 0 && !t.savingAccount).reduce((s,t) => s + Math.abs(t.amount), 0), [periodTxs]);
+  const periodInvest  = React.useMemo(() => periodTxs.filter(t => t.cat === 'invest').reduce((s,t) => s + Math.abs(t.amount), 0), [periodTxs]);
   const periodSavings = React.useMemo(() => periodTxs.filter(t => t.savingAccount).reduce((s,t) => s + Math.abs(t.amount), 0), [periodTxs]);
 
-  return (
-    <div className="m-screen">
-      <StatusBar/>
+  const activateProfile = (id) => {
+    setProfiles(ps => ps.map(p => ({ ...p, active: p.id === id })));
+    setShowProfileSwitcher(false);
+  };
 
-      {/* Header */}
-      <div style={{ padding:'16px 20px 14px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <div className="m-tap" onClick={() => nav.switchTab('profile')} style={{
-          width:42, height:42, borderRadius:999, background:M.sage, color:'#fff', flexShrink:0,
-          display:'flex', alignItems:'center', justifyContent:'center', fontWeight:600, fontSize:16, fontFamily:M.fontDisp,
-        }}>J</div>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div className="m-num" style={{ fontSize:22, fontWeight:600, letterSpacing:'-0.02em', lineHeight:1 }}>
-            €8 725<span style={{ fontSize:16, color:M.ink3, fontWeight:500 }}>,68</span>
-          </div>
-          <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:3 }}>
-            <div style={{ width:5, height:5, borderRadius:999, background:M.sage, flexShrink:0 }}/>
-            <div style={{ fontSize:11, color:M.ink3 }}>Last sync · 15:38</div>
-          </div>
-        </div>
-        <button className="m-iconbtn filled m-tap" onClick={() => nav.push('notifications')}><I name="bell" size={18}/></button>
-      </div>
+  const isVisible = (id) => {
+    const card = homeCards.find(c => c.id === id);
+    return card ? card.visible : true;
+  };
 
-      <div className="m-body-scroll">
-        {/* Period card */}
-        <div className="m-card m-fade" style={{ padding:'16px 16px 14px', marginBottom:14, border:`1px solid ${M.line}` }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-            <div className="m-cap">Period</div>
-            <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-              <button className="m-iconbtn m-tap" onClick={() => setPidx(i => Math.max(0, i-1))}
-                style={{ width:28, height:28, opacity:pidx===0?0.3:1 }}><I name="arrowL" size={14}/></button>
-              <div style={{ fontSize:12, fontWeight:600, color:M.ink2, width:130, textAlign:'center' }}>{pd.label}</div>
-              <button className="m-iconbtn m-tap" onClick={() => setPidx(i => Math.min(PERIOD_HISTORY.length-1, i+1))}
-                style={{ width:28, height:28, opacity:isCurrent?0.3:1 }}><I name="arrowR" size={14}/></button>
-            </div>
-          </div>
-          <PeriodStatRow icon="arrow-dn-right" iconBg={M.sageSoft} iconColor={M.sage}
-            label="Income" value={pd.income} valueColor={M.sage}
-            onClick={() => nav.push('income')}/>
-          <div style={{ height:1, background:M.line2 }}/>
-          <PeriodStatRow icon="arrow-up-right" iconBg={M.claySoft} iconColor={M.clay}
-            label="Spent" value={pd.expense} valueColor={M.clay}
-            onClick={() => nav.push('expenses')}/>
-          <div style={{ height:1, background:M.line2 }}/>
-          <PeriodStatRow icon="rocket" iconBg={M.violetSoft} iconColor={M.violet}
-            label="Invested" value={pd.invest} valueColor={M.violet}
-            onClick={() => nav.push('invested')}/>
-          <div style={{ height:1, background:M.line2 }}/>
-          <PeriodStatRow icon="piggy" iconBg={M.ochreSoft} iconColor={M.ochre}
-            label="Savings" value={periodSavings} valueColor={M.ochre}
-            onClick={() => nav.push('savings')}/>
-          <div style={{ height:1, background:M.line2 }}/>
-          <PeriodStatRow icon="goal"
-            iconBg={isCurrent?(currentUnallocated===0?M.sageSoft:M.ochreSoft):(pd.unallocated===0?M.sageSoft:M.ochreSoft)}
-            iconColor={isCurrent?(currentUnallocated===0?M.sage:M.ochre):(pd.unallocated===0?M.sage:M.ochre)}
-            label="Allocate" value={isCurrent?currentUnallocated:pd.unallocated}
-            valueColor={isCurrent?(currentUnallocated===0?M.sage:M.ochre):(pd.unallocated===0?M.sage:M.ochre)}
-            sub={isCurrent?(currentUnallocated===0?'Every euro planned ✓':'Unallocated — tap to plan'):(pd.unallocated===0?'Every euro planned ✓':'Unallocated — tap to plan')}
-            badge={isCurrent?currentUnallocated>0:pd.unallocated>0}
-            onClick={() => nav.push('allocate')}/>
-        </div>
+  // Order home cards as per homeCards config (pinned first, then in user order)
+  const orderedCardIds = homeCards.map(c => c.id);
 
-        {/* Category review — always visible */}
-        {reviewCount > 0 && (
-          <div className="m-tap m-card m-fade" onClick={() => nav.push('reviewSwipe')} style={{
+  const renderCard = (id) => {
+    switch(id) {
+      case 'review':
+        if (reviewCount === 0) return null;
+        return (
+          <div key="review" className="m-tap m-card m-fade" onClick={() => nav.push('reviewSwipe')} style={{
             padding:14, marginBottom:14, border:`1px solid ${M.ochreSoft}`, background:'#FBF6E9',
             display:'flex', alignItems:'center', gap:12,
           }}>
@@ -1554,59 +1527,99 @@ function ScreenHome() {
             </div>
             <I name="arrowR" size={16} color={M.ink3}/>
           </div>
-        )}
-
-        {/* Budgets */}
-        <div className="m-card m-fade" style={{ padding:16, marginBottom:14, border:`1px solid ${M.line}` }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-            <div className="m-h3">Budgets</div>
-            <div className="m-tap" onClick={() => nav.push('budgets')} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:M.ink3, fontWeight:500 }}>
-              See all {BUDGETS.length} <I name="caretR" size={12}/>
+        );
+      case 'period':
+        if (!isVisible('period')) return null;
+        return (
+          <div key="period" className="m-card m-fade" style={{ padding:'16px 16px 14px', marginBottom:14, border:`1px solid ${M.line}` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+              <div className="m-cap">Period</div>
+              <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                <button className="m-iconbtn m-tap" onClick={() => setPidx(i => Math.max(0, i-1))}
+                  style={{ width:28, height:28, opacity:pidx===0?0.3:1 }}><I name="arrowL" size={14}/></button>
+                <div style={{ fontSize:12, fontWeight:600, color:M.ink2, width:130, textAlign:'center' }}>{pd.label}</div>
+                <button className="m-iconbtn m-tap" onClick={() => setPidx(i => Math.min(PERIOD_HISTORY.length-1, i+1))}
+                  style={{ width:28, height:28, opacity:isCurrent?0.3:1 }}><I name="arrowR" size={14}/></button>
+              </div>
+            </div>
+            <PeriodStatRow icon="arrow-dn-right" iconBg={M.sageSoft} iconColor={M.sage}
+              label="Income" value={periodIncome} valueColor={M.sage}
+              onClick={() => nav.push('income')}/>
+            <div style={{ height:1, background:M.line2 }}/>
+            <PeriodStatRow icon="arrow-up-right" iconBg={M.claySoft} iconColor={M.clay}
+              label="Spent" value={periodExpense} valueColor={M.clay}
+              onClick={() => nav.push('expenses')}/>
+            <div style={{ height:1, background:M.line2 }}/>
+            <PeriodStatRow icon="rocket" iconBg={M.violetSoft} iconColor={M.violet}
+              label="Invested" value={periodInvest} valueColor={M.violet}
+              onClick={() => nav.push('invested')}/>
+            <div style={{ height:1, background:M.line2 }}/>
+            <PeriodStatRow icon="piggy" iconBg={M.ochreSoft} iconColor={M.ochre}
+              label="Savings" value={periodSavings} valueColor={M.ochre}
+              onClick={() => nav.push('savings')}/>
+            <div style={{ height:1, background:M.line2 }}/>
+            <PeriodStatRow icon="goal"
+              iconBg={isCurrent?(currentUnallocated===0?M.sageSoft:M.ochreSoft):(pd.unallocated===0?M.sageSoft:M.ochreSoft)}
+              iconColor={isCurrent?(currentUnallocated===0?M.sage:M.ochre):(pd.unallocated===0?M.sage:M.ochre)}
+              label="Allocate" value={isCurrent?currentUnallocated:pd.unallocated}
+              valueColor={isCurrent?(currentUnallocated===0?M.sage:M.ochre):(pd.unallocated===0?M.sage:M.ochre)}
+              sub={isCurrent?(currentUnallocated===0?'Every euro planned ✓':'Unallocated — tap to plan'):(pd.unallocated===0?'Every euro planned ✓':'Unallocated — tap to plan')}
+              badge={isCurrent?currentUnallocated>0:pd.unallocated>0}
+              onClick={() => nav.push('allocate')}/>
+          </div>
+        );
+      case 'budgets':
+        if (!isVisible('budgets')) return null;
+        return (
+          <div key="budgets" className="m-card m-fade" style={{ padding:16, marginBottom:14, border:`1px solid ${M.line}` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+              <div className="m-h3">Budgets</div>
+              <div className="m-tap" onClick={() => nav.push('budgets')} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:M.ink3, fontWeight:500 }}>
+                See all {BUDGETS.length} <I name="caretR" size={12}/>
+              </div>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+              {budgetTop.map(b => <BudgetMini key={b.id} b={b} onClick={() => nav.push('budgetDetail', { id:b.id })}/>)}
             </div>
           </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            {budgetTop.map(b => <BudgetMini key={b.id} b={b} onClick={() => nav.push('budgetDetail', { id:b.id })}/>)}
-          </div>
-        </div>
-
-        {/* Goals */}
-        <div className="m-card m-fade" style={{ padding:16, marginBottom:14, border:`1px solid ${M.line}` }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-            <div className="m-h3">Goals</div>
-            <div className="m-tap" onClick={() => nav.push('goals')} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:M.ink3, fontWeight:500 }}>
-              See all <I name="caretR" size={12}/>
+        );
+      case 'goals':
+        if (!isVisible('goals')) return null;
+        return (
+          <div key="goals" className="m-card m-fade" style={{ padding:16, marginBottom:14, border:`1px solid ${M.line}` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+              <div className="m-h3">Goals</div>
+              <div className="m-tap" onClick={() => nav.push('goals')} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:M.ink3, fontWeight:500 }}>
+                See all <I name="caretR" size={12}/>
+              </div>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {GOALS.map(g => <GoalMiniRow key={g.id} g={g} onClick={() => nav.push('goalDetail', { id:g.id })}/>)}
             </div>
           </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            {GOALS.map(g => <GoalMiniRow key={g.id} g={g} onClick={() => nav.push('goalDetail', { id:g.id })}/>)}
-          </div>
-        </div>
-
-        {/* Portfolio */}
-        <div className="m-tap m-card m-fade" onClick={() => nav.push('investment')} style={{
-          padding:16, marginBottom:14, border:`1px solid ${M.line}`, display:'flex', alignItems:'center', gap:14,
-        }}>
-          <div style={{ width:40, height:40, borderRadius:10, background:M.violetSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <I name="rocket" size={18} color={M.violet}/>
-          </div>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:14, fontWeight:600 }}>Portfolio</div>
-            <div className="m-num" style={{ fontSize:15, fontWeight:600, marginTop:2 }}>
-              {fmtEurInt(PORTFOLIO.total)}
-              <span style={{ fontSize:12, color:M.sage, marginLeft:8, fontFamily:M.fontUI, fontWeight:600 }}>+{PORTFOLIO.pnlPct.toFixed(1)}%</span>
+        );
+      case 'savings':
+        if (!isVisible('savings')) return null;
+        return (
+          <div key="savings" className="m-tap m-card m-fade" onClick={() => nav.push('savings')} style={{ padding:16, marginBottom:14, border:`1px solid ${M.line}`, display:'flex', alignItems:'center', gap:14 }}>
+            <div style={{ width:40, height:40, borderRadius:10, background:M.ochreSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <I name="piggy" size={18} color={M.ochre}/>
             </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:600 }}>Savings</div>
+              <div className="m-num" style={{ fontSize:15, fontWeight:600, marginTop:2, color:M.ochre }}>{fmtEurInt(periodSavings)}</div>
+            </div>
+            <I name="caretR" size={14} color={M.ink4}/>
           </div>
-          <Sparkline data={PORTFOLIO.curve} width={60} height={26} color={M.violet} fill="rgba(94,74,120,0.12)" strokeWidth={1.6}/>
-          <I name="caretR" size={14} color={M.ink4}/>
-        </div>
-
-        {/* Debts */}
-        {(() => {
+        );
+      case 'debts':
+        if (!isVisible('debts')) return null;
+        return (() => {
           const totalDebt = DEBTS.reduce((s, d) => s + d.balance, 0);
           const paidOff = DEBTS.reduce((s, d) => s + (d.original - d.balance), 0);
           const total = DEBTS.reduce((s, d) => s + d.original, 0);
           return (
-            <div className="m-tap m-card m-fade" onClick={() => nav.push('debts')} style={{ padding:16, marginBottom:14, border:`1px solid ${M.line}` }}>
+            <div key="debts" className="m-tap m-card m-fade" onClick={() => nav.push('debts')} style={{ padding:16, marginBottom:14, border:`1px solid ${M.line}` }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
                 <div className="m-h3">Debts</div>
                 <div className="m-tap" style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:M.ink3, fontWeight:500 }}>
@@ -1622,12 +1635,146 @@ function ScreenHome() {
               </div>
             </div>
           );
-        })()}
+        })();
+      case 'upcoming':
+        if (!isVisible('upcoming')) return null;
+        return (
+          <div key="upcoming" className="m-tap m-card m-fade" onClick={() => nav.switchTab('recurring')} style={{ padding:16, marginBottom:14, border:`1px solid ${M.line}`, display:'flex', alignItems:'center', gap:14 }}>
+            <div style={{ width:40, height:40, borderRadius:10, background:M.slateSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <I name="cal" size={18} color={M.slate}/>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:600 }}>Upcoming</div>
+              <div style={{ fontSize:12, color:M.ink3, marginTop:2 }}>Recurring payments</div>
+            </div>
+            <I name="caretR" size={14} color={M.ink4}/>
+          </div>
+        );
+      case 'investment':
+        if (!isVisible('investment')) return null;
+        return (
+          <div key="investment" className="m-tap m-card m-fade" onClick={() => nav.push('investment')} style={{
+            padding:16, marginBottom:14, border:`1px solid ${M.line}`, display:'flex', alignItems:'center', gap:14,
+          }}>
+            <div style={{ width:40, height:40, borderRadius:10, background:M.violetSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <I name="rocket" size={18} color={M.violet}/>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:600 }}>Investments</div>
+              <div className="m-num" style={{ fontSize:15, fontWeight:600, marginTop:2 }}>
+                {fmtEurInt(PORTFOLIO.total)}
+                <span style={{ fontSize:12, color:M.sage, marginLeft:8, fontFamily:M.fontUI, fontWeight:600 }}>+{PORTFOLIO.pnlPct.toFixed(1)}%</span>
+              </div>
+            </div>
+            <Sparkline data={PORTFOLIO.curve} width={60} height={26} color={M.violet} fill="rgba(94,74,120,0.12)" strokeWidth={1.6}/>
+            <I name="caretR" size={14} color={M.ink4}/>
+          </div>
+        );
+      case 'insights':
+        if (!isVisible('insights')) return null;
+        return (
+          <div key="insights" className="m-tap m-card m-fade" onClick={() => nav.switchTab('insights')} style={{ padding:16, marginBottom:14, border:`1px solid ${M.line}`, display:'flex', alignItems:'center', gap:14 }}>
+            <div style={{ width:40, height:40, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <I name="trending-up" size={18} color={M.sage}/>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:600 }}>Insights</div>
+              <div style={{ fontSize:12, color:M.ink3, marginTop:2 }}>AI spending analysis</div>
+            </div>
+            <I name="caretR" size={14} color={M.ink4}/>
+          </div>
+        );
+      case 'quickActions':
+        if (!isVisible('quickActions')) return null;
+        return (
+          <div key="quickActions" className="m-card m-fade" style={{ padding:16, marginBottom:14, border:`1px solid ${M.line}` }}>
+            <div className="m-h3" style={{ marginBottom:12 }}>Quick Actions</div>
+            <div style={{ display:'flex', gap:10 }}>
+              {[
+                { label:'Add saving', icon:'piggy', action: () => nav.push('savingAccounts') },
+                { label:'Review tx', icon:'sliders', action: () => nav.push('reviewSwipe') },
+                { label:'New budget', icon:'goal', action: () => nav.push('budgetCreate') },
+              ].map(a => (
+                <button key={a.label} className="m-tap" onClick={a.action} style={{ flex:1, padding:'12px 8px', background:M.paper2, border:`1px solid ${M.line}`, borderRadius:12, textAlign:'center', cursor:'pointer', fontFamily:M.fontUI }}>
+                  <I name={a.icon} size={20} color={M.ink2}/>
+                  <div style={{ fontSize:11, color:M.ink3, marginTop:6 }}>{a.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      default: return null;
+    }
+  };
 
+  return (
+    <div className="m-screen">
+      <StatusBar/>
+
+      {/* Header */}
+      <div style={{ padding:'16px 20px 14px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
+        <div className="m-tap" onClick={() => setShowProfileSwitcher(true)} style={{
+          width:42, height:42, borderRadius:999, background:M.sage, color:'#fff', flexShrink:0,
+          display:'flex', alignItems:'center', justifyContent:'center', fontWeight:600, fontSize:16, fontFamily:M.fontDisp,
+        }}>{(activeProfile?.name || 'D').charAt(0).toUpperCase()}</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div className="m-num" style={{ fontSize:22, fontWeight:600, letterSpacing:'-0.02em', lineHeight:1 }}>
+            €8 725<span style={{ fontSize:16, color:M.ink3, fontWeight:500 }}>,68</span>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:3 }}>
+            <div style={{ width:5, height:5, borderRadius:999, background:M.sage, flexShrink:0 }}/>
+            <div style={{ fontSize:11, color:M.ink3 }}>Last sync · 15:38</div>
+          </div>
+        </div>
+        <button className="m-iconbtn filled m-tap" onClick={() => nav.push('notifications')}><I name="bell" size={18}/></button>
+      </div>
+
+      <div className="m-body-scroll">
+        {orderedCardIds.map(id => renderCard(id))}
         <div style={{ height:12 }}/>
       </div>
 
       <TabBar active="home" onChange={(t) => nav.switchTab(t)}/>
+
+      {/* Profile switcher sheet */}
+      {showProfileSwitcher && (
+        <Sheet onClose={() => setShowProfileSwitcher(false)}>
+          <div style={{ padding:'4px 4px 8px' }}>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>Switch profile</div>
+            <div className="m-card" style={{ border:`1px solid ${M.line}`, padding:'4px 16px', marginBottom:16 }}>
+              {profiles.map((p, i) => {
+                const acctCount = (p.accountIds || []).length;
+                return (
+                  <React.Fragment key={p.id}>
+                    {i > 0 && <Divider inset={48}/>}
+                    <div className="m-tap" onClick={() => activateProfile(p.id)}
+                      style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+                      <div style={{ width:36, height:36, borderRadius:10, background: p.active ? M.sage : M.paper2, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <I name={p.icon || 'card'} size={18} color={p.active ? '#fff' : M.ink2}/>
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:14, fontWeight:600 }}>{p.name}</div>
+                        <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{acctCount} account{acctCount !== 1 ? 's' : ''}</div>
+                      </div>
+                      {p.active ? (
+                        <div style={{ width:20, height:20, borderRadius:999, background:M.sage, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                          <I name="check" size={11} color="#fff" stroke={2.5}/>
+                        </div>
+                      ) : (
+                        <div style={{ width:20, height:20, borderRadius:999, border:`2px solid ${M.line2}` }}/>
+                      )}
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+            <div className="m-tap" onClick={() => { setShowProfileSwitcher(false); nav.push('profiles'); }}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'12px 0', color:M.sage, fontSize:14, fontWeight:600 }}>
+              Manage profiles <I name="caretR" size={14} color={M.sage}/>
+            </div>
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }
@@ -1882,6 +2029,10 @@ function ScreenTxDetail({ params }) {
 
   const initCats = () => tx.cats ? tx.cats.slice() : [{ catId: tx.cat, amount: Math.abs(tx.amount) }];
   const [txCats, setTxCats] = React.useState(initCats);
+  // Sync txCats when tx.cats changes in context (e.g. after saving account attach)
+  React.useEffect(() => {
+    setTxCats(tx.cats ? tx.cats.slice() : [{ catId: tx.cat, amount: Math.abs(tx.amount) }]);
+  }, [tx.cats, tx.cat]);
   const [noteText, setNoteText] = React.useState(tx.note || '');
   // Derive from live tx so store/photo receipt additions are reflected immediately
   const hasReceiptState = tx.hasReceipt || false;
@@ -2386,13 +2537,13 @@ function ScreenExpenses() {
                       <div style={{ fontSize: 11, color: M.ink3, fontWeight: 500, minWidth: 28, textAlign: 'right' }}>{pct.toFixed(0)}%</div>
                     </div>
                   </div>
-                  {subs.length > 0 && <I name={isOpen ? 'arrowDn' : 'caretR'} size={14} color={M.ink4}/>}
+                  {subs.length > 0 && <div style={{ transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s ease', display:'flex' }}><I name="caretR" size={14} color={M.ink4}/></div>}
                 </div>
                 {isOpen && subs.length > 0 && (
-                  <div style={{ background: M.paper2 }}>
+                  <div style={{ background: M.paper2, animation: 'fadeIn 0.2s ease-out' }}>
                     {/* All — shows every transaction under this parent */}
                     <Divider inset={0}/>
-                    <div className="m-tap" onClick={() => nav.push('categoryDrill', { id: c.id })}
+                    <div className="m-tap" onClick={() => nav.push('categoryDrill', { id: c.id, periodStart: selPeriod.start, periodEnd: selPeriod.end, periodLabel: selPeriod.label })}
                       style={{ padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{ width: 30, height: 30, borderRadius: 8, background: '#fff', border: `1px solid ${M.line2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <I name={c.icon || 'box'} size={14} color={M.ink3}/>
@@ -2410,7 +2561,7 @@ function ScreenExpenses() {
                       return (
                         <React.Fragment key={s.id}>
                           <Divider inset={58}/>
-                          <div className="m-tap" onClick={() => nav.push('categoryDrill', { id: s.id })}
+                          <div className="m-tap" onClick={() => nav.push('categoryDrill', { id: s.id, periodStart: selPeriod.start, periodEnd: selPeriod.end, periodLabel: selPeriod.label })}
                             style={{ padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
                             <div style={{ width: 30, height: 30, borderRadius: 8, background: '#fff', border: `1px solid ${M.line2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                               <I name={subCat.icon || 'box'} size={14} color={M.ink2}/>
@@ -2441,12 +2592,21 @@ function ScreenCategoryDrill({ params }) {
   const { txs: allTxs } = useTxCtx();
   const cat = CATEGORIES[params?.id] || _catExt[params?.id] || CATEGORIES.restaurants;
   const isParent = !!cat.isParent;
+  const periodStart = params?.periodStart;
+  const periodEnd = params?.periodEnd;
+  const periodLabel = params?.periodLabel;
 
   const childIds = isParent
     ? [...Object.values(CATEGORIES), ...Object.values(_catExt)].filter(c => c.parent === cat.id).map(c => c.id)
     : [cat.id];
 
-  const txs = allTxs.filter(t => t.amount < 0 && childIds.includes(t.cat));
+  // Filter by category and period if provided
+  const txs = allTxs.filter(t => {
+    if (t.amount >= 0) return false;
+    if (!childIds.includes(t.cat)) return false;
+    if (periodStart && periodEnd) return t.date >= periodStart && t.date <= periodEnd;
+    return true;
+  });
   const total = txs.reduce((s, t) => s + Math.abs(t.amount), 0);
 
   const months = ['Sep–Oct','Oct–Nov','Nov–Dec','Dec–Jan','Jan–Feb','Feb–Mar'];
@@ -2457,6 +2617,14 @@ function ScreenCategoryDrill({ params }) {
   const title = isParent ? `All ${cat.name}` : cat.name;
   const sub   = isParent ? null : cat.group;
 
+  // Group by day
+  const byDay = {};
+  txs.forEach(t => {
+    if (!byDay[t.date]) byDay[t.date] = [];
+    byDay[t.date].push(t);
+  });
+  const dayKeys = Object.keys(byDay).sort((a,b) => b.localeCompare(a));
+
   return (
     <div className="m-screen">
       <StatusBar/>
@@ -2465,10 +2633,12 @@ function ScreenCategoryDrill({ params }) {
         trailing={<button className="m-iconbtn m-tap"><I name="filter" size={20}/></button>}
       />
       <div className="m-body-scroll">
+        {periodLabel && (
+          <div style={{ textAlign:'center', padding:'4px 0 8px', fontSize:12, color:M.ink3, fontWeight:500 }}>{periodLabel}</div>
+        )}
         <div className="m-card" style={{ padding: 18, marginBottom: 14, border: `1px solid ${M.line}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <div className="m-cap">Spent this period</div>
-            <div style={{ fontSize: 11, color: M.clay, fontWeight: 600 }}>+12% vs avg</div>
+            <div className="m-cap">{periodLabel ? `Spent · ${periodLabel}` : 'Spent this period'}</div>
           </div>
           <div className="m-num" style={{ fontSize: 30, fontWeight: 600, marginTop: 4 }}>{fmtEur(total)}</div>
           <div style={{ marginTop: 16 }}>
@@ -2477,14 +2647,21 @@ function ScreenCategoryDrill({ params }) {
         </div>
 
         <div className="m-cap" style={{ marginBottom: 8, paddingLeft: 4 }}>Transactions · {txs.length}</div>
-        <div className="m-card" style={{ padding: '0 16px', border: `1px solid ${M.line}` }}>
-          {txs.map((t, i, a) => (
-            <React.Fragment key={t.id}>
-              <TxRow tx={t} showDate onClick={() => nav.push('txDetail', { id: t.id })}/>
-              {i < a.length - 1 && <Divider inset={50}/>}
-            </React.Fragment>
-          ))}
-        </div>
+        {dayKeys.length === 0 ? (
+          <div className="m-card" style={{ padding:'24px 0', textAlign:'center', border:`1px solid ${M.line}`, color:M.ink3, fontSize:13 }}>No transactions</div>
+        ) : dayKeys.map(day => (
+          <div key={day} style={{ marginBottom:8 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:M.ink3, paddingLeft:4, marginBottom:4 }}>{dayLabel(day)}</div>
+            <div className="m-card" style={{ padding:'0 16px', border:`1px solid ${M.line}` }}>
+              {byDay[day].map((t, i, a) => (
+                <React.Fragment key={t.id}>
+                  <TxRow tx={t} onClick={() => nav.push('txDetail', { id: t.id })}/>
+                  {i < a.length-1 && <Divider inset={50}/>}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -3008,14 +3185,10 @@ function ScreenProfile() {
   const [editing, setEditing] = React.useState(false);
   const [name, setName] = useLocalStorage('munni_profile_name', 'Demo van der Berg');
   const [email, setEmail] = useLocalStorage('munni_profile_email', 'demo@munni.app');
-  const [profiles, setProfiles] = useLocalStorage('munni_profiles', DEFAULT_PROFILES);
+  const { profiles } = useProfiles();
   const [connectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
   const [draft, setDraft] = React.useState({ name, email });
   const [showReset, setShowReset] = React.useState(false);
-  const [showNewProfile, setShowNewProfile] = React.useState(false);
-  const [showDeleteProfile, setShowDeleteProfile] = React.useState(null);
-  const [showManageProfile, setShowManageProfile] = React.useState(null);
-  const [newProfileDraft, setNewProfileDraft] = React.useState({ name:'', type:'bank' });
 
   const startEdit = () => { setDraft({ name, email }); setEditing(true); };
   const save = () => { setName(draft.name); setEmail(draft.email); setEditing(false); };
@@ -3024,51 +3197,6 @@ function ScreenProfile() {
 
   const activeProfile = profiles.find(p => p.active) || profiles[0];
   const connectedBanks = connectedAccounts.filter(a => a.type === 'checking').length;
-
-  const activateProfile = (id) => setProfiles(ps => ps.map(p => ({ ...p, active: p.id === id })));
-  const deleteProfile = (id) => {
-    setProfiles(ps => {
-      const remaining = ps.filter(p => p.id !== id);
-      if (!remaining.find(p => p.active) && remaining.length > 0) remaining[0].active = true;
-      return remaining;
-    });
-    setShowDeleteProfile(null);
-  };
-  const toggleProfileAccount = (profileId, accountId) => {
-    setProfiles(ps => ps.map(p => {
-      if (p.id !== profileId) return p;
-      const ids = p.accountIds || [];
-      const newIds = ids.includes(accountId) ? ids.filter(id => id !== accountId) : [...ids, accountId];
-      return { ...p, accountIds: newIds };
-    }));
-    setShowManageProfile(prev => {
-      if (!prev || prev.id !== profileId) return prev;
-      const ids = prev.accountIds || [];
-      const newIds = ids.includes(accountId) ? ids.filter(id => id !== accountId) : [...ids, accountId];
-      return { ...prev, accountIds: newIds };
-    });
-  };
-  const createProfile = () => {
-    if (!newProfileDraft.name.trim()) return;
-    const newP = {
-      id: `p_${Date.now()}`,
-      name: newProfileDraft.name.trim(),
-      icon: newProfileDraft.type === 'bank' ? 'card' : 'piggy',
-      active: false,
-      accountIds: [],
-    };
-    setProfiles(ps => [...ps, newP]);
-    setShowNewProfile(false);
-    setNewProfileDraft({ name:'', type:'bank' });
-    if (newProfileDraft.type === 'bank') nav.push('accounts');
-    else nav.push('savingsDetail', { id: 'save' });
-  };
-  const profileAccountSub = (p) => {
-    const ids = p.accountIds || [];
-    if (ids.length === 0) return 'No accounts · tap manage to add';
-    const names = ids.map(id => connectedAccounts.find(a => a.id === id)?.name).filter(Boolean);
-    return `${ids.length} account${ids.length > 1 ? 's' : ''} · ${names.slice(0, 2).join(', ')}${names.length > 2 ? '…' : ''}`;
-  };
 
   return (
     <div className="m-screen">
@@ -3116,53 +3244,14 @@ function ScreenProfile() {
           )}
         </div>
 
-        {/* Profiles */}
-        <div className="m-cap" style={{ marginBottom: 8, paddingLeft: 4 }}>Profiles</div>
-        <div className="m-card" style={{ padding: '4px 16px', marginBottom: 16, border: `1px solid ${M.line}` }}>
-          {profiles.map((p, i) => (
-            <React.Fragment key={p.id}>
-              {i > 0 && <Divider inset={48}/>}
-              <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0' }}>
-                <div className="m-tap" onClick={() => activateProfile(p.id)}
-                  style={{ width:32, height:32, borderRadius:9, background: p.active ? M.sage : M.paper2, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <I name={p.icon} size={16} color={p.active ? '#fff' : M.ink2}/>
-                </div>
-                <div className="m-tap" onClick={() => activateProfile(p.id)} style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:14, fontWeight:600 }}>{p.name}</div>
-                  <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{profileAccountSub(p)}</div>
-                </div>
-                <button className="m-tap" onClick={() => setShowManageProfile(p)}
-                  style={{ background:'none', border:'none', padding:'4px 8px', cursor:'pointer', display:'flex', alignItems:'center', gap:4 }}>
-                  <span style={{ fontSize:10, color:M.ink3, fontFamily:M.fontUI }}>Manage</span>
-                </button>
-                {p.active ? (
-                  <I name="check" size={16} color={M.sage}/>
-                ) : (
-                  <button className="m-tap" onClick={e => { e.stopPropagation(); setShowDeleteProfile(p); }}
-                    style={{ background:'none', border:'none', padding:4, cursor:'pointer' }}>
-                    <I name="x" size={14} color={M.ink4}/>
-                  </button>
-                )}
-              </div>
-            </React.Fragment>
-          ))}
-          <Divider inset={0}/>
-          <div className="m-tap" onClick={() => setShowNewProfile(true)} style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0', color:M.sage }}>
-            <div style={{ width:32, height:32, borderRadius:9, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <I name="plus" size={16} color={M.sage}/>
-            </div>
-            <div style={{ flex:1, fontSize:14, fontWeight:600 }}>Create profile</div>
-          </div>
-        </div>
-
         {/* Manage */}
         <div className="m-cap" style={{ marginBottom: 8, paddingLeft: 4 }}>Manage</div>
         <div className="m-card" style={{ padding: '4px 16px', marginBottom: 16, border: `1px solid ${M.line}` }}>
+          <ProfileLink icon="user"    label="Profiles"           sub={`${profiles.length} profile${profiles.length!==1?'s':''} · ${activeProfile?.name}`} onClick={() => nav.push('profiles')}/>
+          <Divider inset={48}/>
           <ProfileLink icon="box"     label="Categories"         sub="Manage custom categories"           onClick={() => nav.push('manageCategories')}/>
           <Divider inset={48}/>
-          <ProfileLink icon="card"    label="Bank accounts"      sub={`${connectedBanks} connected · source of truth`}  onClick={() => nav.push('accounts')}/>
-          <Divider inset={48}/>
-          <ProfileLink icon="piggy"   label="Saving accounts"    sub="ING savings · ASN emergency"        onClick={() => nav.push('savingAccounts')}/>
+          <ProfileLink icon="card"    label="Accounts"           sub={`${connectedBanks} connected`}      onClick={() => nav.push('accountsAll')}/>
           <Divider inset={48}/>
           <ProfileLink icon="link"    label="Integrations"       sub="4 stores connected"                 onClick={() => nav.push('integrations')}/>
           <Divider inset={48}/>
@@ -3225,99 +3314,253 @@ function ScreenProfile() {
           </div>
         </Sheet>
       )}
+    </div>
+  );
+}
 
-      {showDeleteProfile && (
-        <Sheet onClose={() => setShowDeleteProfile(null)}>
+function ScreenProfiles() {
+  const nav = useNav();
+  const { profiles, setProfiles } = useProfiles();
+  const [connectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
+  const [showNewProfile, setShowNewProfile] = React.useState(false);
+  const [newProfileName, setNewProfileName] = React.useState('');
+
+  const activateProfile = (id) => setProfiles(ps => ps.map(p => ({ ...p, active: p.id === id })));
+
+  const createProfile = () => {
+    if (!newProfileName.trim()) return;
+    const newP = {
+      id: `p_${Date.now()}`,
+      name: newProfileName.trim(),
+      icon: 'card',
+      active: false,
+      accountIds: [],
+    };
+    setProfiles(ps => [...ps, newP]);
+    setShowNewProfile(false);
+    setNewProfileName('');
+    nav.push('profileDetail', { id: newP.id });
+  };
+
+  const profileAccountSub = (p) => {
+    const ids = p.accountIds || [];
+    if (ids.length === 0) return 'No accounts';
+    return `${ids.length} account${ids.length > 1 ? 's' : ''}`;
+  };
+
+  return (
+    <div className="m-screen">
+      <StatusBar/>
+      <AppBar title="Profiles"
+        leading={<button className="m-iconbtn m-tap" onClick={() => nav.pop()}><I name="arrowL" size={20}/></button>}
+        trailing={<button className="m-iconbtn m-tap" onClick={() => setShowNewProfile(true)}><I name="plus" size={20}/></button>}
+      />
+      <div className="m-body-scroll">
+        <div className="m-card" style={{ padding:'4px 16px', marginBottom:16, border:`1px solid ${M.line}` }}>
+          {profiles.map((p, i) => {
+            const sub = profileAccountSub(p);
+            return (
+              <React.Fragment key={p.id}>
+                {i > 0 && <Divider inset={48}/>}
+                <div style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+                  <div className="m-tap" onClick={() => activateProfile(p.id)}
+                    style={{ width:36, height:36, borderRadius:10, background: p.active ? M.sage : M.paper2, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <I name={p.icon || 'card'} size={18} color={p.active ? '#fff' : M.ink2}/>
+                  </div>
+                  <div className="m-tap" onClick={() => activateProfile(p.id)} style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight:600 }}>{p.name}</div>
+                    <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{sub}</div>
+                  </div>
+                  {p.active && (
+                    <div style={{ width:20, height:20, borderRadius:999, background:M.sage, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <I name="check" size={11} color="#fff" stroke={2.5}/>
+                    </div>
+                  )}
+                  <button className="m-iconbtn m-tap" onClick={() => nav.push('profileDetail', { id: p.id })}>
+                    <I name="caretR" size={16} color={M.ink4}/>
+                  </button>
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+        <div style={{ padding:'12px 14px', borderRadius:12, background:M.sageSoft, display:'flex', gap:10, alignItems:'flex-start' }}>
+          <I name="help" size={16} color={M.sage}/>
+          <div style={{ fontSize:12, color:M.ink2, lineHeight:1.5 }}>
+            Tap a profile to activate it. Tap the arrow to manage its accounts. Create multiple profiles to separate personal and business finances.
+          </div>
+        </div>
+      </div>
+
+      {showNewProfile && (
+        <Sheet onClose={() => setShowNewProfile(false)}>
           <div style={{ padding:'4px 4px 8px' }}>
-            <div style={{ fontSize:17, fontWeight:700, marginBottom:8 }}>Delete "{showDeleteProfile.name}"?</div>
-            <div style={{ fontSize:14, color:M.ink3, lineHeight:1.5, marginBottom:20 }}>
-              This profile will be permanently removed. Transactions linked to it will remain but the profile can no longer be selected.
-            </div>
-            <button onClick={() => deleteProfile(showDeleteProfile.id)}
-              style={{ width:'100%', padding:'14px 0', background:M.clay, color:'#fff', border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, marginBottom:10 }}>
-              Delete profile
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>New profile</div>
+            <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Profile name</div>
+            <input
+              autoFocus
+              value={newProfileName}
+              onChange={e => setNewProfileName(e.target.value)}
+              placeholder="e.g. Business, Partner, Side hustle…"
+              style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box', marginBottom:20 }}
+            />
+            <button onClick={createProfile}
+              style={{ width:'100%', padding:'14px 0', background:newProfileName.trim() ? M.sage : M.line, color:newProfileName.trim() ? '#fff' : M.ink4, border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:newProfileName.trim()?'pointer':'default', fontFamily:M.fontUI, marginBottom:10 }}>
+              Create profile
             </button>
-            <button onClick={() => setShowDeleteProfile(null)}
+            <button onClick={() => setShowNewProfile(false)}
               style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
               Cancel
             </button>
           </div>
         </Sheet>
       )}
+    </div>
+  );
+}
 
-      {showManageProfile && (
-        <Sheet onClose={() => setShowManageProfile(null)}>
-          <div style={{ padding:'4px 4px 8px' }}>
-            <div style={{ fontSize:17, fontWeight:700, marginBottom:4 }}>{showManageProfile.name}</div>
-            <div style={{ fontSize:13, color:M.ink3, lineHeight:1.5, marginBottom:16 }}>
-              Select which bank accounts appear in this profile. Only transactions from selected accounts will be visible.
-            </div>
-            <div className="m-card" style={{ border:`1px solid ${M.line}`, padding:'4px 16px', marginBottom:16 }}>
-              {connectedAccounts.length === 0 && (
-                <div style={{ padding:'16px 0', textAlign:'center', fontSize:13, color:M.ink3 }}>No accounts connected yet</div>
-              )}
-              {connectedAccounts.map((a, i, arr) => {
-                const isIncluded = (showManageProfile.accountIds || []).includes(a.id);
-                return (
-                  <React.Fragment key={a.id}>
-                    {i > 0 && <Divider inset={48}/>}
-                    <div className="m-tap" onClick={() => toggleProfileAccount(showManageProfile.id, a.id)}
-                      style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
-                      <div style={{ width:36, height:36, borderRadius:10, background:a.color, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                        <I name={a.type==='savings'?'piggy':a.type==='invest'?'rocket':'card'} size={16} color="#fff"/>
-                      </div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:14, fontWeight:500 }}>{a.name}</div>
-                        <div style={{ fontSize:11, color:M.ink3, marginTop:1, fontFamily:M.fontMono }}>{a.iban}</div>
-                      </div>
-                      {isIncluded
-                        ? <I name="check" size={16} color={M.sage}/>
-                        : <div style={{ width:18, height:18, borderRadius:5, border:`2px solid ${M.line2}` }}/>}
-                    </div>
-                  </React.Fragment>
-                );
-              })}
-            </div>
-            <button onClick={() => setShowManageProfile(null)}
-              style={{ width:'100%', padding:'14px 0', background:M.sage, color:'#fff', border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
-              Done
-            </button>
+function ScreenProfileDetail({ params }) {
+  const nav = useNav();
+  const { profiles, setProfiles } = useProfiles();
+  const [connectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [editingName, setEditingName] = React.useState(false);
+  const [nameDraft, setNameDraft] = React.useState('');
+
+  const profile = profiles.find(p => p.id === params?.id);
+  if (!profile) return null;
+
+  const accountIds = profile.accountIds || [];
+  const isActive = profile.active;
+  const isOnly = profiles.length === 1;
+
+  const startEditName = () => { setNameDraft(profile.name); setEditingName(true); };
+  const saveName = () => {
+    if (nameDraft.trim()) setProfiles(ps => ps.map(p => p.id === profile.id ? { ...p, name: nameDraft.trim() } : p));
+    setEditingName(false);
+  };
+
+  const toggleAccount = (accountId) => {
+    setProfiles(ps => ps.map(p => {
+      if (p.id !== profile.id) return p;
+      const ids = p.accountIds || [];
+      const newIds = ids.includes(accountId) ? ids.filter(x => x !== accountId) : [...ids, accountId];
+      return { ...p, accountIds: newIds };
+    }));
+  };
+
+  const deleteProfile = () => {
+    setProfiles(ps => {
+      const remaining = ps.filter(p => p.id !== profile.id);
+      if (!remaining.find(p => p.active) && remaining.length > 0) remaining[0] = { ...remaining[0], active: true };
+      return remaining;
+    });
+    nav.pop();
+  };
+
+  return (
+    <div className="m-screen">
+      <StatusBar/>
+      <AppBar title="Profile"
+        leading={<button className="m-iconbtn m-tap" onClick={() => nav.pop()}><I name="arrowL" size={20}/></button>}
+      />
+      <div className="m-body-scroll">
+        {/* Profile name */}
+        <div className="m-card" style={{ padding:'14px 16px', marginBottom:16, border:`1px solid ${M.line}`, display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ width:44, height:44, borderRadius:12, background: isActive ? M.sage : M.paper2, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <I name={profile.icon || 'card'} size={20} color={isActive ? '#fff' : M.ink2}/>
           </div>
-        </Sheet>
-      )}
+          <div style={{ flex:1, minWidth:0 }}>
+            {editingName ? (
+              <input
+                autoFocus
+                value={nameDraft}
+                onChange={e => setNameDraft(e.target.value)}
+                onBlur={saveName}
+                onKeyDown={e => e.key==='Enter' && saveName()}
+                style={{ width:'100%', fontSize:16, fontWeight:600, border:`1px solid ${M.sage}`, borderRadius:8, padding:'6px 10px', fontFamily:M.fontUI, background:M.paper2, outline:'none' }}
+              />
+            ) : (
+              <div className="m-tap" onClick={startEditName} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <div style={{ fontSize:16, fontWeight:600 }}>{profile.name}</div>
+                <I name="edit" size={14} color={M.ink4}/>
+              </div>
+            )}
+            {isActive && (
+              <div style={{ fontSize:11, color:M.sage, fontWeight:600, marginTop:3 }}>Active profile</div>
+            )}
+          </div>
+        </div>
 
-      {showNewProfile && (
-        <Sheet onClose={() => setShowNewProfile(false)}>
-          <div style={{ padding:'4px 4px 8px' }}>
-            <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>Create profile</div>
-            <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Profile name</div>
-            <input
-              autoFocus
-              value={newProfileDraft.name}
-              onChange={e => setNewProfileDraft(d => ({ ...d, name: e.target.value }))}
-              placeholder="e.g. Business, Savings…"
-              style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box', marginBottom:16 }}
-            />
-            <div style={{ fontSize:12, color:M.ink3, marginBottom:8 }}>Profile type</div>
-            <div style={{ display:'flex', gap:10, marginBottom:20 }}>
-              {[
-                { value:'bank',    label:'Connect bank',     icon:'card',  desc:'Link via Open Banking' },
-                { value:'savings', label:'Saving account',   icon:'piggy', desc:'Manual savings pot' },
-              ].map(opt => (
-                <div key={opt.value} className="m-tap" onClick={() => setNewProfileDraft(d => ({ ...d, type: opt.value }))}
-                  style={{ flex:1, padding:'14px 12px', borderRadius:12, border:`2px solid ${newProfileDraft.type === opt.value ? M.sage : M.line}`,
-                    background: newProfileDraft.type === opt.value ? M.sageSoft : M.paper2, textAlign:'center' }}>
-                  <I name={opt.icon} size={20} color={newProfileDraft.type === opt.value ? M.sage : M.ink3}/>
-                  <div style={{ fontSize:12, fontWeight:600, marginTop:6, color: newProfileDraft.type === opt.value ? M.sage : M.ink }}>{opt.label}</div>
-                  <div style={{ fontSize:10, color:M.ink3, marginTop:2 }}>{opt.desc}</div>
+        {/* Accounts */}
+        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>Accounts in this profile</div>
+        <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
+          {connectedAccounts.length === 0 && (
+            <div style={{ padding:'20px 0', textAlign:'center', color:M.ink3, fontSize:13 }}>No accounts connected yet</div>
+          )}
+          {connectedAccounts.map((a, i) => {
+            const included = accountIds.includes(a.id);
+            return (
+              <React.Fragment key={a.id}>
+                {i > 0 && <Divider inset={50}/>}
+                <div className="m-tap" onClick={() => toggleAccount(a.id)}
+                  style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+                  <div style={{ width:36, height:36, borderRadius:10, background: a.color || M.paper2, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <I name={a.type==='savings'?'piggy':a.type==='invest'?'rocket':'card'} size={16} color="#fff"/>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight:500 }}>{a.name}</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:2 }}>
+                      <div style={{ fontSize:11, color:M.ink3, fontFamily:M.fontMono }}>{a.iban}</div>
+                      {a.manual && <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.ochreSoft, color:M.ochre, textTransform:'uppercase' }}>Manual</span>}
+                      {a.bankId && <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.sageSoft, color:M.sage, textTransform:'uppercase' }}>Bank</span>}
+                    </div>
+                  </div>
+                  {included
+                    ? <div style={{ width:22, height:22, borderRadius:999, background:M.sage, display:'flex', alignItems:'center', justifyContent:'center' }}><I name="check" size={12} color="#fff" stroke={2.5}/></div>
+                    : <div style={{ width:22, height:22, borderRadius:999, border:`2px solid ${M.line2}` }}/>}
                 </div>
-              ))}
+              </React.Fragment>
+            );
+          })}
+          <Divider inset={0}/>
+          <div className="m-tap" onClick={() => nav.push('accountsAll')}
+            style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0', color:M.sage }}>
+            <div style={{ width:36, height:36, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <I name="plus" size={16} color={M.sage}/>
             </div>
-            <button onClick={createProfile}
-              style={{ width:'100%', padding:'14px 0', background:newProfileDraft.name.trim() ? M.sage : M.line, color:newProfileDraft.name.trim() ? '#fff' : M.ink4, border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:newProfileDraft.name.trim()?'pointer':'default', fontFamily:M.fontUI, marginBottom:10 }}>
-              Create &amp; {newProfileDraft.type === 'bank' ? 'connect bank' : 'set up savings'}
+            <div style={{ flex:1, fontSize:14, fontWeight:600 }}>Connect new bank account</div>
+            <I name="caretR" size={14} color={M.ink4}/>
+          </div>
+        </div>
+
+        {/* Delete */}
+        <button
+          disabled={isOnly || isActive}
+          onClick={() => setShowDeleteConfirm(true)}
+          style={{ width:'100%', padding:'14px 0', background: (isOnly||isActive) ? M.line : M.claySoft, color:(isOnly||isActive) ? M.ink4 : M.clay, border:'none', borderRadius:12, fontSize:15, fontWeight:600, cursor:(isOnly||isActive)?'not-allowed':'pointer', fontFamily:M.fontUI, marginBottom:8 }}>
+          Delete profile
+        </button>
+        {(isOnly || isActive) && (
+          <div style={{ textAlign:'center', fontSize:12, color:M.ink4 }}>
+            {isActive ? 'Cannot delete the active profile — switch first' : 'Cannot delete the only profile'}
+          </div>
+        )}
+        <div style={{ height:16 }}/>
+      </div>
+
+      {showDeleteConfirm && (
+        <Sheet onClose={() => setShowDeleteConfirm(false)}>
+          <div style={{ padding:'4px 4px 8px' }}>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:8 }}>Delete "{profile.name}"?</div>
+            <div style={{ fontSize:14, color:M.ink3, lineHeight:1.5, marginBottom:20 }}>
+              This profile will be permanently removed. Transactions will remain.
+            </div>
+            <button onClick={deleteProfile}
+              style={{ width:'100%', padding:'14px 0', background:M.clay, color:'#fff', border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, marginBottom:10 }}>
+              Delete profile
             </button>
-            <button onClick={() => setShowNewProfile(false)}
+            <button onClick={() => setShowDeleteConfirm(false)}
               style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
               Cancel
             </button>
@@ -4155,7 +4398,7 @@ function ScreenAccounts() {
   const nav = useNav();
   const { addTxs } = useTxCtx();
   const [connectedAccounts, setConnectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
-  const [profiles, setProfiles] = useLocalStorage('munni_profiles', DEFAULT_PROFILES);
+  const { profiles, setProfiles } = useProfiles();
   const [showAdd, setShowAdd] = React.useState(false);
   const [bankSearch, setBankSearch] = React.useState('');
   const [selectedBank, setSelectedBank] = useLocalStorage('munni_selected_bank', null);
@@ -4607,24 +4850,487 @@ function ScreenSavingAccounts() {
   );
 }
 
+const HOME_CARDS_DEFAULT = [
+  { id:'review',     label:'Category Review',  sub:'Pinned — uncategorized transactions', visible:true,  pinned:true  },
+  { id:'period',     label:'Period',            sub:'Income, spent, savings, invest',      visible:true,  pinned:false },
+  { id:'budgets',    label:'Budgets',           sub:'Budget overview',                     visible:true,  pinned:false },
+  { id:'goals',      label:'Goals',             sub:'Savings goals progress',              visible:true,  pinned:false },
+  { id:'savings',    label:'Savings',           sub:'Saving accounts summary',             visible:true,  pinned:false },
+  { id:'debts',      label:'Debts',             sub:'Debt tracker',                        visible:true,  pinned:false },
+  { id:'upcoming',   label:'Upcoming',          sub:'Recurring payments due',              visible:true,  pinned:false },
+  { id:'investment', label:'Investments',       sub:'Portfolio overview',                  visible:true,  pinned:false },
+  { id:'insights',   label:'Insights',          sub:'AI-powered spending insights',        visible:false, pinned:false },
+  { id:'quickActions',label:'Quick Actions',    sub:'Shortcuts to common tasks',           visible:false, pinned:false },
+];
+
+function ScreenAccountsAll() {
+  const nav = useNav();
+  const { addTxs } = useTxCtx();
+  const [connectedAccounts, setConnectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
+  const { profiles, setProfiles } = useProfiles();
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [bankSearch, setBankSearch] = React.useState('');
+  const [selectedBank, setSelectedBank] = useLocalStorage('munni_selected_bank', null);
+  const [psd2Step, setPsd2Step] = React.useState(null);
+  const [psd2Bank, setPsd2Bank] = React.useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(null);
+  const [showCreateSaving, setShowCreateSaving] = React.useState(false);
+  const [savingDraft, setSavingDraft] = React.useState({ name:'', balance:'', type:'savings' });
+  const [showRenameSheet, setShowRenameSheet] = React.useState(null);
+  const [renameDraft, setRenameDraft] = React.useState('');
+  const [showAddTxSheet, setShowAddTxSheet] = React.useState(null);
+  const [txDraft, setTxDraft] = React.useState({ amount:'', desc:'', date: new Date().toISOString().slice(0,10), dir:'deposit' });
+
+  const bankAccounts = connectedAccounts.filter(a => a.type === 'checking');
+  const savingAccounts = connectedAccounts.filter(a => a.type === 'savings' || a.type === 'invest');
+  const filteredBanks = DUTCH_BANKS.filter(b => !bankSearch || b.name.toLowerCase().includes(bankSearch.toLowerCase()));
+
+  const startBankConnect = (bank) => {
+    setPsd2Bank(bank);
+    setSelectedBank(bank.id);
+    setPsd2Step('login');
+    setShowAdd(false);
+  };
+
+  const advancePsd2 = () => {
+    if (psd2Step === 'login') setPsd2Step('consent');
+    else if (psd2Step === 'consent') {
+      setPsd2Step('connecting');
+      const bank = psd2Bank;
+      setTimeout(() => {
+        const bankColors = { ing:'#ff6200', abn:'#00a63c', rabo:'#da1913', sns:'#e20082', asn:'#7ab800', triodos:'#00ac42', bunq:'#00ccff', knab:'#0057b8', regio:'#e4003a', revolut:'#191c1f', n26:'#1e1e1e', wise:'#9fe870' };
+        const newAcct = {
+          id: `bank_${Date.now()}`,
+          name: bank.name,
+          type: 'checking',
+          iban: `NL${20 + (bank.name.length % 78)} ${bank.id.toUpperCase().slice(0,4)} ${Math.floor(1000000000 + (bank.name.charCodeAt(0) * 17 + Date.now()) % 9000000000)}`,
+          color: bankColors[bank.id] || M.slate,
+          bankId: bank.id,
+        };
+        setConnectedAccounts(a => [...a, newAcct]);
+        const newTxs = generateBankTxs(newAcct.id, bank.name);
+        addTxs(newTxs);
+        setProfiles(ps => ps.map(p => p.active ? { ...p, accountIds: [...(p.accountIds || []), newAcct.id] } : p));
+        setSelectedBank(null);
+        setPsd2Step('done');
+      }, 1800);
+    }
+    else if (psd2Step === 'done') setPsd2Step(null);
+  };
+
+  const createSavingAccount = () => {
+    if (!savingDraft.name.trim()) return;
+    const colors = { savings: M.ochreSoft, invest: M.violetSoft };
+    const newAcct = {
+      id: `save_${Date.now()}`,
+      name: savingDraft.name.trim(),
+      type: savingDraft.type,
+      iban: 'Manual',
+      color: colors[savingDraft.type] || M.ochreSoft,
+      manual: true,
+      balance: parseFloat(savingDraft.balance) || 0,
+    };
+    setConnectedAccounts(a => [...a, newAcct]);
+    setShowCreateSaving(false);
+    setSavingDraft({ name:'', balance:'', type:'savings' });
+  };
+
+  const deleteAccount = (acct) => {
+    setConnectedAccounts(a => a.filter(x => x.id !== acct.id));
+    setShowDeleteConfirm(null);
+  };
+
+  const renameAccount = () => {
+    if (!renameDraft.trim() || !showRenameSheet) return;
+    setConnectedAccounts(a => a.map(x => x.id === showRenameSheet.id ? { ...x, name: renameDraft.trim() } : x));
+    setShowRenameSheet(null);
+  };
+
+  const addSavingTx = () => {
+    if (!txDraft.amount || !showAddTxSheet) return;
+    const amt = parseFloat(txDraft.amount) || 0;
+    const signed = txDraft.dir === 'deposit' ? -Math.abs(amt) : Math.abs(amt);
+    const cat = txDraft.dir === 'deposit' ? 'savingDeposit' : 'savingWithdraw';
+    const newTx = {
+      id: `stx_${Date.now()}`,
+      merchant: showAddTxSheet.name,
+      desc: txDraft.desc || (txDraft.dir === 'deposit' ? 'Saving deposit' : 'Saving withdrawal'),
+      amount: signed,
+      date: txDraft.date,
+      time: '12:00',
+      cat,
+      account: showAddTxSheet.id,
+      savingAccount: showAddTxSheet.id,
+      cats: [{ catId: cat, amount: Math.abs(amt) }],
+    };
+    addTxs([newTx]);
+    setShowAddTxSheet(null);
+    setTxDraft({ amount:'', desc:'', date: new Date().toISOString().slice(0,10), dir:'deposit' });
+  };
+
+  if (psd2Step) {
+    return (
+      <div className="m-screen">
+        <StatusBar/>
+        <AppBar title={psd2Bank?.name || 'Connect bank'}
+          leading={psd2Step !== 'connecting' ? <button className="m-iconbtn m-tap" onClick={() => setPsd2Step(null)}><I name="x" size={20}/></button> : null}
+        />
+        <div style={{ flex:1, display:'flex', flexDirection:'column', padding:'24px 24px 32px', gap:20, overflowY:'auto' }}>
+          {psd2Step === 'login' && (
+            <>
+              <div style={{ textAlign:'center', marginBottom:8 }}>
+                <div style={{ fontSize:36, marginBottom:8 }}>{psd2Bank?.logo}</div>
+                <div style={{ fontSize:17, fontWeight:700 }}>{psd2Bank?.name}</div>
+                <div style={{ fontSize:12, color:M.ink3, marginTop:4 }}>Sign in with your {psd2Bank?.name} credentials to continue</div>
+              </div>
+              <div>
+                <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Username / Customer number</div>
+                <input defaultValue="demo.user@munni.app" style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box' }}/>
+              </div>
+              <div>
+                <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Password</div>
+                <input type="password" defaultValue="••••••••" style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box' }}/>
+              </div>
+              <div style={{ padding:'12px 14px', borderRadius:10, background:M.sageSoft, display:'flex', gap:10, alignItems:'flex-start' }}>
+                <I name="lock" size={16} color={M.sage}/>
+                <div style={{ fontSize:12, color:M.ink2, lineHeight:1.45 }}>
+                  munni uses <strong>PSD2 Open Banking</strong>. Your credentials are sent directly to {psd2Bank?.name} — we never store them.
+                </div>
+              </div>
+              <button className="m-btn sage m-tap" onClick={advancePsd2} style={{ marginTop:'auto' }}>Continue to {psd2Bank?.name}</button>
+            </>
+          )}
+          {psd2Step === 'consent' && (
+            <>
+              <div style={{ textAlign:'center', marginBottom:8 }}>
+                <div style={{ fontSize:36, marginBottom:8 }}>{psd2Bank?.logo}</div>
+                <div style={{ fontSize:17, fontWeight:700 }}>Allow access?</div>
+                <div style={{ fontSize:12, color:M.ink3, marginTop:4 }}>munni requests read-only access to:</div>
+              </div>
+              <div className="m-card" style={{ padding:'4px 16px', border:`1px solid ${M.line}` }}>
+                {[
+                  { icon:'card', label:'Account information', sub:'IBAN, name, balance' },
+                  { icon:'receipt', label:'Transaction history', sub:'Last 13 months · read-only' },
+                ].map((item, i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 && <Divider inset={48}/>}
+                    <div style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+                      <div style={{ width:36, height:36, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <I name={item.icon} size={16} color={M.sage}/>
+                      </div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:14, fontWeight:500 }}>{item.label}</div>
+                        <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{item.sub}</div>
+                      </div>
+                      <I name="check" size={16} color={M.sage}/>
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+              <div style={{ fontSize:12, color:M.ink3, textAlign:'center', lineHeight:1.5 }}>munni can <strong>never initiate payments</strong>. You can revoke access at any time.</div>
+              <button className="m-btn sage m-tap" onClick={advancePsd2} style={{ marginTop:'auto' }}>Authorise access</button>
+              <button className="m-btn outline m-tap" onClick={() => setPsd2Step(null)}>Cancel</button>
+            </>
+          )}
+          {psd2Step === 'connecting' && (
+            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, textAlign:'center' }}>
+              <div style={{ fontSize:36 }}>{psd2Bank?.logo}</div>
+              <div style={{ display:'flex', gap:8 }}>
+                {[0,1,2].map(i => <div key={i} style={{ width:8, height:8, borderRadius:999, background:M.sage, animation:`pulse 1.2s ease-in-out ${i*0.4}s infinite` }}/>)}
+              </div>
+              <div style={{ fontSize:15, fontWeight:600 }}>Connecting to {psd2Bank?.name}…</div>
+              <div style={{ fontSize:12, color:M.ink3 }}>Fetching your accounts and transactions</div>
+            </div>
+          )}
+          {psd2Step === 'done' && (
+            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, textAlign:'center' }}>
+              <div style={{ width:80, height:80, borderRadius:24, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <I name="check" size={36} color={M.sage} stroke={2.5}/>
+              </div>
+              <div className="m-h2">Connected!</div>
+              <div style={{ fontSize:13, color:M.ink3, lineHeight:1.5, maxWidth:260 }}>{psd2Bank?.name} is now connected. Transactions will sync automatically.</div>
+              <button className="m-btn sage m-tap" onClick={advancePsd2} style={{ marginTop:8 }}>Done</button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="m-screen">
+      <StatusBar/>
+      <AppBar title="Accounts"
+        leading={<button className="m-iconbtn m-tap" onClick={() => nav.pop()}><I name="arrowL" size={20}/></button>}
+      />
+      <div className="m-body-scroll">
+        {/* Bank accounts section */}
+        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>Bank accounts</div>
+        <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
+          {bankAccounts.map((a, i) => (
+            <React.Fragment key={a.id}>
+              {i > 0 && <Divider inset={50}/>}
+              <div style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+                <div style={{ width:38, height:38, borderRadius:10, background:a.color, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <I name="card" size={18} color="#fff"/>
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <div style={{ fontSize:14, fontWeight:600 }}>{a.name}</div>
+                    <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.sageSoft, color:M.sage, textTransform:'uppercase' }}>Bank</span>
+                  </div>
+                  <div style={{ fontSize:11, color:M.ink3, marginTop:2, fontFamily:M.fontMono }}>{a.iban}</div>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <div className="m-num" style={{ fontSize:15, fontWeight:600 }}>{fmtEur(a.balance)}</div>
+                  <button className="m-tap" onClick={() => setShowDeleteConfirm(a)}
+                    style={{ background:'none', border:'none', padding:4, cursor:'pointer' }}>
+                    <I name="x" size={14} color={M.ink4}/>
+                  </button>
+                </div>
+              </div>
+            </React.Fragment>
+          ))}
+          <Divider inset={0}/>
+          <div className="m-tap" onClick={() => setShowAdd(true)} style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0', color:M.sage }}>
+            <div style={{ width:38, height:38, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <I name="plus" size={16} color={M.sage}/>
+            </div>
+            <div style={{ flex:1, fontSize:14, fontWeight:600 }}>Connect a bank</div>
+            <I name="caretR" size={14} color={M.ink4}/>
+          </div>
+        </div>
+
+        <div style={{ padding:'12px 14px', borderRadius:12, background:M.sageSoft, display:'flex', gap:10, alignItems:'flex-start', marginBottom:14 }}>
+          <I name="lock" size={16} color={M.sage}/>
+          <div style={{ fontSize:12, color:M.ink2, lineHeight:1.45 }}>
+            Bank accounts connect via PSD2 Open Banking. munni has read-only access — we can never move money.
+          </div>
+        </div>
+
+        {/* Saving accounts section */}
+        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>Saving accounts</div>
+        <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
+          {savingAccounts.map((a, i) => (
+            <React.Fragment key={a.id}>
+              {i > 0 && <Divider inset={50}/>}
+              <div style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+                <div style={{ width:38, height:38, borderRadius:10, background: a.color || M.ochreSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <I name={a.type==='invest'?'rocket':'piggy'} size={18} color={a.manual ? M.ochre : '#fff'}/>
+                </div>
+                <div className="m-tap" onClick={() => a.manual && (setShowRenameSheet(a), setRenameDraft(a.name))} style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <div style={{ fontSize:14, fontWeight:600 }}>{a.name}</div>
+                    {a.manual
+                      ? <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.ochreSoft, color:M.ochre, textTransform:'uppercase' }}>Manual</span>
+                      : <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.sageSoft, color:M.sage, textTransform:'uppercase' }}>Bank</span>
+                    }
+                  </div>
+                  <div style={{ fontSize:11, color:M.ink3, marginTop:2, fontFamily:M.fontMono }}>{a.iban}</div>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <div className="m-num" style={{ fontSize:14, fontWeight:600 }}>{fmtEur(a.balance || 0)}</div>
+                  <button className="m-tap" onClick={() => { setShowAddTxSheet(a); setTxDraft({ amount:'', desc:'', date: new Date().toISOString().slice(0,10), dir:'deposit' }); }}
+                    style={{ background:'none', border:'none', padding:4, cursor:'pointer' }}>
+                    <I name="plus" size={14} color={M.sage}/>
+                  </button>
+                  {a.manual && (
+                    <button className="m-tap" onClick={() => setShowDeleteConfirm(a)}
+                      style={{ background:'none', border:'none', padding:4, cursor:'pointer' }}>
+                      <I name="x" size={14} color={M.ink4}/>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </React.Fragment>
+          ))}
+          <Divider inset={0}/>
+          <div className="m-tap" onClick={() => setShowCreateSaving(true)} style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0', color:M.sage }}>
+            <div style={{ width:38, height:38, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <I name="plus" size={16} color={M.sage}/>
+            </div>
+            <div style={{ flex:1, fontSize:14, fontWeight:600 }}>Create saving account</div>
+            <I name="caretR" size={14} color={M.ink4}/>
+          </div>
+        </div>
+
+        <div style={{ padding:'12px 14px', borderRadius:12, background:M.ochreSoft, display:'flex', gap:10, alignItems:'flex-start', marginBottom:8 }}>
+          <I name="help" size={16} color={M.ochre}/>
+          <div style={{ fontSize:12, color:M.ink2, lineHeight:1.5 }}>
+            Banks often don't expose saving accounts via Open Banking (PSD2). Create saving accounts manually here to track deposits and withdrawals yourself.
+          </div>
+        </div>
+        <div style={{ height:8 }}/>
+      </div>
+
+      {/* Connect bank sheet */}
+      {showAdd && (
+        <Sheet onClose={() => setShowAdd(false)}>
+          <div style={{ padding:'4px 20px 32px' }}>
+            <div className="m-h2" style={{ marginBottom:12 }}>Connect a bank</div>
+            <div style={{ position:'relative', marginBottom:12 }}>
+              <I name="search" size={16} color={M.ink4} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}/>
+              <input autoFocus value={bankSearch} onChange={e => setBankSearch(e.target.value)} placeholder="Search banks…"
+                style={{ width:'100%', padding:'10px 12px 10px 36px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box' }}/>
+            </div>
+            <div className="m-card" style={{ padding:'4px 16px', border:`1px solid ${M.line}`, maxHeight:340, overflowY:'auto' }}>
+              {filteredBanks.length === 0 && <div style={{ padding:'20px 0', textAlign:'center', color:M.ink3, fontSize:13 }}>No banks found</div>}
+              {filteredBanks.map((bank, i) => {
+                const isConnected = connectedAccounts.some(a => a.name.toLowerCase().includes(bank.name.toLowerCase()));
+                return (
+                  <React.Fragment key={bank.id}>
+                    {i > 0 && <Divider inset={48}/>}
+                    <div className="m-tap" onClick={() => !isConnected && startBankConnect(bank)}
+                      style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0', opacity: isConnected ? 0.5 : 1 }}>
+                      <div style={{ width:36, height:36, borderRadius:10, background:bank.color+'22', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:18 }}>{bank.logo}</div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:14, fontWeight:500 }}><HighlightText text={bank.name} query={bankSearch}/></div>
+                        <div style={{ fontSize:11, color:M.ink3, marginTop:1, fontFamily:M.fontMono }}>{bank.bic}</div>
+                      </div>
+                      {isConnected ? <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999, background:M.sageSoft, color:M.sage, textTransform:'uppercase' }}>Connected</span>
+                        : <I name="caretR" size={14} color={M.ink4}/>}
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+        </Sheet>
+      )}
+
+      {/* Create saving account sheet */}
+      {showCreateSaving && (
+        <Sheet onClose={() => setShowCreateSaving(false)}>
+          <div style={{ padding:'4px 4px 8px' }}>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>Create saving account</div>
+            <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Account name</div>
+            <input autoFocus value={savingDraft.name} onChange={e => setSavingDraft(d => ({ ...d, name: e.target.value }))}
+              placeholder="e.g. Emergency fund, Holiday…"
+              style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box', marginBottom:12 }}/>
+            <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Starting balance (optional)</div>
+            <input type="number" value={savingDraft.balance} onChange={e => setSavingDraft(d => ({ ...d, balance: e.target.value }))}
+              placeholder="0.00"
+              style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box', marginBottom:12 }}/>
+            <div style={{ fontSize:12, color:M.ink3, marginBottom:8 }}>Type</div>
+            <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+              {[{v:'savings',l:'Savings',icon:'piggy'},{v:'invest',l:'Invest',icon:'rocket'}].map(opt => (
+                <button key={opt.v} className="m-tap" onClick={() => setSavingDraft(d => ({ ...d, type:opt.v }))}
+                  style={{ flex:1, padding:'12px 8px', borderRadius:12, border:`2px solid ${savingDraft.type===opt.v?M.sage:M.line}`, background: savingDraft.type===opt.v?M.sageSoft:M.paper2, textAlign:'center', cursor:'pointer', fontFamily:M.fontUI }}>
+                  <I name={opt.icon} size={18} color={savingDraft.type===opt.v?M.sage:M.ink3}/>
+                  <div style={{ fontSize:12, fontWeight:600, marginTop:6, color:savingDraft.type===opt.v?M.sage:M.ink }}>{opt.l}</div>
+                </button>
+              ))}
+            </div>
+            <button onClick={createSavingAccount}
+              style={{ width:'100%', padding:'14px 0', background:savingDraft.name.trim()?M.sage:M.line, color:savingDraft.name.trim()?'#fff':M.ink4, border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:savingDraft.name.trim()?'pointer':'default', fontFamily:M.fontUI, marginBottom:10 }}>
+              Create account
+            </button>
+            <button onClick={() => setShowCreateSaving(false)}
+              style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
+              Cancel
+            </button>
+          </div>
+        </Sheet>
+      )}
+
+      {/* Rename saving account */}
+      {showRenameSheet && (
+        <Sheet onClose={() => setShowRenameSheet(null)}>
+          <div style={{ padding:'4px 4px 8px' }}>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>Rename account</div>
+            <input autoFocus value={renameDraft} onChange={e => setRenameDraft(e.target.value)}
+              style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box', marginBottom:20 }}/>
+            <button onClick={renameAccount}
+              style={{ width:'100%', padding:'14px 0', background:M.sage, color:'#fff', border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, marginBottom:10 }}>
+              Save
+            </button>
+            <button onClick={() => setShowRenameSheet(null)}
+              style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
+              Cancel
+            </button>
+          </div>
+        </Sheet>
+      )}
+
+      {/* Add transaction to saving account */}
+      {showAddTxSheet && (
+        <Sheet onClose={() => setShowAddTxSheet(null)}>
+          <div style={{ padding:'4px 4px 8px' }}>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:4 }}>{showAddTxSheet.name}</div>
+            <div style={{ fontSize:13, color:M.ink3, marginBottom:16 }}>Add a manual transaction to this saving account.</div>
+            <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+              {[{v:'deposit',l:'Deposit'},{v:'withdraw',l:'Withdraw'}].map(opt => (
+                <button key={opt.v} className="m-tap" onClick={() => setTxDraft(d => ({ ...d, dir:opt.v }))}
+                  style={{ flex:1, padding:'10px', borderRadius:10, border:`2px solid ${txDraft.dir===opt.v?M.sage:M.line}`, background: txDraft.dir===opt.v?M.sageSoft:M.paper2, fontFamily:M.fontUI, fontSize:13, fontWeight:600, color:txDraft.dir===opt.v?M.sage:M.ink, cursor:'pointer' }}>
+                  {opt.l}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Amount (€)</div>
+            <input type="number" value={txDraft.amount} onChange={e => setTxDraft(d => ({ ...d, amount:e.target.value }))}
+              placeholder="0.00" autoFocus
+              style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:16, fontFamily:M.fontMono, background:M.paper2, outline:'none', boxSizing:'border-box', marginBottom:12 }}/>
+            <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Description</div>
+            <input value={txDraft.desc} onChange={e => setTxDraft(d => ({ ...d, desc:e.target.value }))}
+              placeholder="e.g. Monthly savings"
+              style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box', marginBottom:12 }}/>
+            <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Date</div>
+            <input type="date" value={txDraft.date} onChange={e => setTxDraft(d => ({ ...d, date:e.target.value }))}
+              style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box', marginBottom:20 }}/>
+            <button onClick={addSavingTx}
+              style={{ width:'100%', padding:'14px 0', background:txDraft.amount?M.sage:M.line, color:txDraft.amount?'#fff':M.ink4, border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:txDraft.amount?'pointer':'default', fontFamily:M.fontUI, marginBottom:10 }}>
+              Add transaction
+            </button>
+            <button onClick={() => setShowAddTxSheet(null)}
+              style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
+              Cancel
+            </button>
+          </div>
+        </Sheet>
+      )}
+
+      {/* Delete confirmation */}
+      {showDeleteConfirm && (
+        <Sheet onClose={() => setShowDeleteConfirm(null)}>
+          <div style={{ padding:'4px 20px 32px' }}>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:8 }}>Remove account?</div>
+            <div style={{ fontSize:14, color:M.ink3, lineHeight:1.5, marginBottom:20 }}>
+              <strong>{showDeleteConfirm.name}</strong> will be removed.{!showDeleteConfirm.manual ? ' Historical transactions will remain but new syncing will stop.' : ''}
+            </div>
+            <button onClick={() => deleteAccount(showDeleteConfirm)}
+              style={{ width:'100%', padding:'14px 0', background:M.clay, color:'#fff', border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, marginBottom:10 }}>
+              Remove account
+            </button>
+            <button onClick={() => setShowDeleteConfirm(null)}
+              style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
+              Cancel
+            </button>
+          </div>
+        </Sheet>
+      )}
+    </div>
+  );
+}
+
 function ScreenCustomizeHome() {
   const nav = useNav();
-  const LOCKED = new Set(['period', 'review']);
-  const [secs, setSecs] = React.useState([
-    { id:'period',     label:'This period',    sub:'Period stats — always visible', visible:true },
-    { id:'review',     label:'Category review',sub:'Uncategorized transactions — always visible', visible:true },
-    { id:'budgets',    label:'Budgets',         sub:'Budget overview', visible:true },
-    { id:'goals',      label:'Goals',           sub:'Savings goals progress', visible:true },
-    { id:'investment', label:'Portfolio',        sub:'Investment overview', visible:true },
-  ]);
+  const [cards, setCards] = useLocalStorage('munni_home_cards', HOME_CARDS_DEFAULT);
 
-  const move = (i, dir) => setSecs(s => {
-    const ns = [...s], t = i + dir;
-    if (t < 0 || t >= ns.length) return ns;
-    [ns[i], ns[t]] = [ns[t], ns[i]];
-    return ns;
-  });
-  const toggle = (id) => setSecs(s => s.map(x => x.id === id ? { ...x, visible: !x.visible } : x));
+  // Ensure pinned card is always first
+  const pinnedCard = cards.find(c => c.pinned) || cards[0];
+  const moveableCards = cards.filter(c => !c.pinned);
+
+  const move = (idx, dir) => {
+    const ns = [...moveableCards];
+    const t = idx + dir;
+    if (t < 0 || t >= ns.length) return;
+    [ns[idx], ns[t]] = [ns[t], ns[idx]];
+    setCards([pinnedCard, ...ns]);
+  };
+
+  const toggle = (id) => {
+    setCards(cs => cs.map(c => c.id === id && !c.pinned ? { ...c, visible: !c.visible } : c));
+  };
 
   return (
     <div className="m-screen">
@@ -4635,52 +5341,64 @@ function ScreenCustomizeHome() {
       />
       <div className="m-body-scroll">
         <div style={{ fontSize:13, color:M.ink3, marginBottom:16, paddingLeft:4, lineHeight:1.5 }}>
-          Choose which cards appear on your home screen and in what order. Locked cards are always shown.
+          Choose which cards appear on your home screen and in what order. The Category Review card is always pinned at the top.
         </div>
+
+        {/* Pinned card */}
+        <div className="m-card" style={{ border:`1px solid ${M.ochre}22`, background:'#FBF6E9', marginBottom:8 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px' }}>
+            <div style={{ width:28, height:28, borderRadius:8, background:M.ochreSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <I name="lock" size={13} color={M.ochre}/>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <div style={{ fontSize:14, fontWeight:500 }}>{pinnedCard?.label}</div>
+                <span style={{ fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:999, background:M.ochreSoft, color:M.ochre, textTransform:'uppercase', letterSpacing:'0.05em' }}>Pinned</span>
+              </div>
+              <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{pinnedCard?.sub}</div>
+            </div>
+            <div style={{ width:28, height:44, opacity:0.25, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3 }}>
+              <div style={{ width:16, height:1.5, borderRadius:1, background:M.ink4 }}/>
+              <div style={{ width:16, height:1.5, borderRadius:1, background:M.ink4 }}/>
+              <div style={{ width:16, height:1.5, borderRadius:1, background:M.ink4 }}/>
+            </div>
+          </div>
+        </div>
+
+        {/* Moveable cards */}
         <div className="m-card" style={{ border:`1px solid ${M.line}` }}>
-          {secs.map((s, i) => {
-            const locked = LOCKED.has(s.id);
-            return (
-              <React.Fragment key={s.id}>
-                <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px' }}>
-                  {locked ? (
-                    <div style={{ width:28, height:28, borderRadius:8, background:M.paper2, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <I name="lock" size={13} color={M.ink4}/>
-                    </div>
-                  ) : (
-                    <button className="m-tap" onClick={() => toggle(s.id)} style={{
-                      width:28, height:28, borderRadius:8, flexShrink:0, cursor:'pointer',
-                      border:`1.5px solid ${s.visible?M.sage:M.line}`,
-                      background:s.visible?M.sage:'transparent',
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                    }}>
-                      {s.visible && <I name="check" size={13} color="#fff" stroke={2.5}/>}
-                    </button>
-                  )}
-                  <div style={{ flex:1, opacity:(!s.visible&&!locked)?0.5:1 }}>
-                    <div style={{ fontSize:14, fontWeight:500 }}>{s.label}</div>
-                    <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{s.sub}</div>
-                  </div>
-                  {!locked && (
-                    <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-                      <button className="m-tap" onClick={() => move(i, -1)} style={{ width:26, height:22, borderRadius:6, border:`1px solid ${M.line}`, background:M.card, display:'flex', alignItems:'center', justifyContent:'center', cursor:i===0?'not-allowed':'pointer', opacity:i===0?0.3:1 }}>
-                        <I name="arrowUp" size={11}/>
-                      </button>
-                      <button className="m-tap" onClick={() => move(i, 1)} style={{ width:26, height:22, borderRadius:6, border:`1px solid ${M.line}`, background:M.card, display:'flex', alignItems:'center', justifyContent:'center', cursor:i===secs.length-1?'not-allowed':'pointer', opacity:i===secs.length-1?0.3:1 }}>
-                        <I name="arrowDn" size={11}/>
-                      </button>
-                    </div>
-                  )}
+          {moveableCards.map((s, i) => (
+            <React.Fragment key={s.id}>
+              {i > 0 && <Divider inset={16}/>}
+              <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px' }}>
+                <button className="m-tap" onClick={() => toggle(s.id)} style={{
+                  width:28, height:28, borderRadius:8, flexShrink:0, cursor:'pointer',
+                  border:`1.5px solid ${s.visible?M.sage:M.line}`,
+                  background:s.visible?M.sage:'transparent',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                }}>
+                  {s.visible && <I name="check" size={13} color="#fff" stroke={2.5}/>}
+                </button>
+                <div style={{ flex:1, opacity:s.visible?1:0.5 }}>
+                  <div style={{ fontSize:14, fontWeight:500 }}>{s.label}</div>
+                  <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{s.sub}</div>
                 </div>
-                {i < secs.length-1 && <Divider inset={16}/>}
-              </React.Fragment>
-            );
-          })}
+                <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                  <button className="m-tap" onClick={() => move(i, -1)} style={{ width:26, height:22, borderRadius:6, border:`1px solid ${M.line}`, background:M.card, display:'flex', alignItems:'center', justifyContent:'center', cursor:i===0?'not-allowed':'pointer', opacity:i===0?0.3:1 }}>
+                    <I name="arrowUp" size={11}/>
+                  </button>
+                  <button className="m-tap" onClick={() => move(i, 1)} style={{ width:26, height:22, borderRadius:6, border:`1px solid ${M.line}`, background:M.card, display:'flex', alignItems:'center', justifyContent:'center', cursor:i===moveableCards.length-1?'not-allowed':'pointer', opacity:i===moveableCards.length-1?0.3:1 }}>
+                    <I name="arrowDn" size={11}/>
+                  </button>
+                </div>
+              </div>
+            </React.Fragment>
+          ))}
         </div>
         <div style={{ marginTop:14, padding:14, borderRadius:12, background:M.sageSoft, display:'flex', gap:10 }}>
           <I name="help" size={16} color={M.sage}/>
           <div style={{ fontSize:12, color:M.ink2, lineHeight:1.5, flex:1 }}>
-            "This period" and "Category review" are always shown and cannot be hidden.
+            "Category Review" is always pinned at the top. Use the checkboxes to show or hide other cards, and arrows to reorder them.
           </div>
         </div>
       </div>
@@ -5497,7 +6215,7 @@ function useLocalStorage(key, defaultValue) {
   return [state, set];
 }
 
-const STORAGE_KEYS = ['munni_txs','munni_recur','munni_topics','munni_pOffset','munni_customCats','munni_dark','munni_profile_name','munni_profile_email','munni_integrations','munni_bank_accounts','munni_selected_bank','munni_profiles','munni_disabled_save_accounts'];
+const STORAGE_KEYS = ['munni_txs','munni_recur','munni_topics','munni_pOffset','munni_customCats','munni_dark','munni_profile_name','munni_profile_email','munni_integrations','munni_bank_accounts','munni_selected_bank','munni_profiles','munni_disabled_save_accounts','munni_home_cards'];
 function clearAllStorage() { STORAGE_KEYS.forEach(k => localStorage.removeItem(k)); }
 
 const CatCtx = React.createContext(null);
@@ -5509,11 +6227,19 @@ function CatProvider({ children }) {
 }
 const useCatCtx = () => React.useContext(CatCtx);
 
+// ── Profiles context — single source of truth ──────────────────
+const ProfilesCtx = React.createContext(null);
+function ProfilesProvider({ children }) {
+  const [profiles, setProfiles] = useLocalStorage('munni_profiles', DEFAULT_PROFILES);
+  return <ProfilesCtx.Provider value={{ profiles, setProfiles }}>{children}</ProfilesCtx.Provider>;
+}
+const useProfiles = () => React.useContext(ProfilesCtx);
+
 // ── Transaction + Recurring context ────────────────────────────
 const TxCtx = React.createContext(null);
 function TxProvider({ children }) {
   const [allTxs, setAllTxs] = useLocalStorage('munni_txs', () => [...TRANSACTIONS, ...GEN_TXS]);
-  const [profiles] = useLocalStorage('munni_profiles', DEFAULT_PROFILES);
+  const { profiles } = useProfiles();
 
   const activeProfile = profiles.find(p => p.active) || profiles[0];
   const activeAccountIds = activeProfile?.accountIds;
@@ -7236,14 +7962,9 @@ function ScreenIncome() {
         leading={<button className="m-iconbtn m-tap" onClick={() => nav.pop()}><I name="arrowL" size={20}/></button>}
       />
       <div className="m-body-scroll">
-        <div style={{ textAlign: 'center', padding: '4px 0 20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 10 }}>
-            <button className="m-iconbtn m-tap"><I name="arrowL" size={16}/></button>
-            <div style={{ fontSize: 12, fontWeight: 600, color: M.ink2 }}>20 Jan – 19 Feb</div>
-            <button className="m-iconbtn m-tap"><I name="arrowR" size={16}/></button>
-          </div>
-          <div className="m-num" style={{ fontSize: 36, fontWeight: 600, letterSpacing: '-0.025em', color: M.sage }}>{fmtEur(total)}</div>
-          <div style={{ fontSize: 12, color: M.ink3, marginTop: 4 }}>income this period</div>
+        <div style={{ textAlign: 'center', padding: '8px 0 20px' }}>
+          <div className="m-num" style={{ fontSize: 38, fontWeight: 600, letterSpacing: '-0.025em', color: M.sage }}>{fmtEur(total)}</div>
+          <div style={{ fontSize: 12, color: M.ink3, marginTop: 4, fontWeight: 500 }}>20 Jan – 19 Feb</div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8, padding: '4px 10px', borderRadius: 999, background: M.sageSoft }}>
             <I name="trending-up" size={12} color={M.sage}/>
             <span style={{ fontSize: 11, color: M.sage, fontWeight: 600 }}>+4% vs previous</span>
@@ -7293,14 +8014,9 @@ function ScreenInvested() {
         leading={<button className="m-iconbtn m-tap" onClick={() => nav.pop()}><I name="arrowL" size={20}/></button>}
       />
       <div className="m-body-scroll">
-        <div style={{ textAlign: 'center', padding: '4px 0 18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 10 }}>
-            <button className="m-iconbtn m-tap"><I name="arrowL" size={16}/></button>
-            <div style={{ fontSize: 12, fontWeight: 600, color: M.ink2 }}>20 Jan – 19 Feb</div>
-            <button className="m-iconbtn m-tap"><I name="arrowR" size={16}/></button>
-          </div>
-          <div className="m-num" style={{ fontSize: 36, fontWeight: 600, letterSpacing: '-0.025em', color: M.violet }}>{fmtEur(total)}</div>
-          <div style={{ fontSize: 12, color: M.ink3, marginTop: 4 }}>invested this period</div>
+        <div style={{ textAlign: 'center', padding: '8px 0 18px' }}>
+          <div className="m-num" style={{ fontSize: 38, fontWeight: 600, letterSpacing: '-0.025em', color: M.violet }}>{fmtEur(total)}</div>
+          <div style={{ fontSize: 12, color: M.ink3, marginTop: 4, fontWeight: 500 }}>20 Jan – 19 Feb</div>
         </div>
 
         <div className="m-tap m-card m-fade" onClick={() => nav.push('investment')} style={{
@@ -7862,6 +8578,9 @@ const SCREEN_REGISTRY = {
   eventDetail:    ({params}) => <ScreenEventDetail params={params}/>,
   eventCreate:    () => <ScreenEventCreate/>,
   accounts:       () => <ScreenAccounts/>,
+  accountsAll:    () => <ScreenAccountsAll/>,
+  profiles:       () => <ScreenProfiles/>,
+  profileDetail:  ({params}) => <ScreenProfileDetail params={params}/>,
   integrations:   ({params}) => <ScreenIntegrations params={params}/>,
   integrationLogin: ({params}) => <ScreenIntegrationLogin params={params}/>,
   integrationReceipts: ({params}) => <ScreenIntegrationReceipts params={params}/>,
@@ -8069,15 +8788,17 @@ function App() {
     <div className="m m-app" style={{ width:'100%', height:'100%', background: M.paper, filter: dark ? 'invert(0.93) hue-rotate(180deg)' : 'none', transition:'filter 0.3s' }}>
       {loggedIn ? (
         <CatProvider>
-          <TxProvider>
-            <RecurProvider>
-              <AllocProvider>
-                <NavProvider initial="home">
-                  <Router/>
-                </NavProvider>
-              </AllocProvider>
-            </RecurProvider>
-          </TxProvider>
+          <ProfilesProvider>
+            <TxProvider>
+              <RecurProvider>
+                <AllocProvider>
+                  <NavProvider initial="home">
+                    <Router/>
+                  </NavProvider>
+                </AllocProvider>
+              </RecurProvider>
+            </TxProvider>
+          </ProfilesProvider>
         </CatProvider>
       ) : (
         <ScreenLoginGate onLogin={() => setLoggedIn(true)}/>
