@@ -751,6 +751,31 @@ function fmtSyncTime(isoStr) {
   return `${day} ${mon} ${d.getFullYear()}, ${hm}`;
 }
 
+function getUserSyncKey() {
+  const m = localStorage.getItem('munni_last_login_method') || 'default';
+  return `munni_last_synced_${m}`;
+}
+
+function addDevLog(level, msg, src) {
+  const KEY = 'munni_dev_logs';
+  try {
+    const existing = JSON.parse(localStorage.getItem(KEY) || 'null');
+    const arr = Array.isArray(existing) ? existing : [];
+    const now = new Date();
+    const ts = `Today ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const log = { id: `log_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, level, msg, src: src || 'app', ts };
+    const updated = [log, ...arr].slice(0, 200);
+    localStorage.setItem(KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('munni-ls', { detail: { key: KEY } }));
+    if (level === 'error' || level === 'warn') {
+      const unreadKey = 'munni_notif_unread';
+      const cur = parseInt(localStorage.getItem(unreadKey) || '0', 10) || 0;
+      localStorage.setItem(unreadKey, JSON.stringify(cur + 1));
+      window.dispatchEvent(new CustomEvent('munni-ls', { detail: { key: unreadKey } }));
+    }
+  } catch {}
+}
+
 const DEMO_ACCOUNT_IDS = ['main', 'save', 'inv'];
 const ACCOUNTS = [
   { id: 'main', name: 'Main · ING',     iban: 'NL47…4231', balance: 5240.18, type: 'checking', color: '#4A6A4F', isDemo: true },
@@ -1277,7 +1302,7 @@ const TRANSLATIONS = {
     // Actions
     'action.save':'Save','action.cancel':'Cancel','action.delete':'Delete','action.add':'Add',
     'action.create':'Create','action.edit':'Edit','action.confirm':'Confirm','action.done':'Done',
-    'action.back':'Back','action.seeAll':'See all','action.reset':'Reset',
+    'action.back':'Back','action.seeAll':'See all','action.reset':'Reset','action.all':'All',
     // Settings menu
     'settings.manage':'Manage','settings.account':'Account',
     'settings.notifications':'Notifications','settings.appearance':'Appearance',
@@ -1386,6 +1411,18 @@ const TRANSLATIONS = {
     'home.everyEuroPlanned':'Every euro planned ✓',
     'home.unallocated':'Unallocated — tap to plan',
     'home.switchProfile':'Switch profile','home.manageProfiles':'Manage profiles',
+    'home.notSynced':'Not synced yet','home.lastSync':'Last sync',
+    'word.account':'account','word.accounts':'accounts','word.noAccounts':'No accounts',
+    // Notifications
+    'notif.bankSync':'Bank sync','notif.bankSyncSub':'Pull latest transactions from your bank',
+    'notif.lastSynced':'Last synced','notif.syncNow':'Sync now','notif.syncing':'Syncing…',
+    'notif.txSynced':'{n} transaction synced','notif.txsSynced':'{n} transactions synced',
+    'notif.reviewNow':'Review now','notif.recentTitle':'Recent notifications',
+    'notif.devLogs':'Developer logs','notif.clearLogs':'Clear logs',
+    'notif.filterErrors':'Errors','notif.filterWarnings':'Warnings','notif.filterInfo':'Info','notif.noLogs':'No log entries',
+    'notif.n12synced':'12 transactions synced','notif.n12syncedSub':'2 hours ago · all categorised',
+    'notif.n3review':'3 transactions need review','notif.n3reviewSub':'2 hours ago · tap to review',
+    'notif.salary':'Salary received','notif.salarySub':'Yesterday · +€2,480.00',
     // Review
     'review.noTxs':'All caught up',
     'review.noTxsSub':"No transactions need review. We'll notify you when new ones arrive.",
@@ -1406,6 +1443,7 @@ const TRANSLATIONS = {
     'profile.cannotDeleteOnly':'Cannot delete the only profile',
     'profile.deleteConfirmTitle':'Delete profile?',
     'profile.deleteConfirmDesc':'This profile will be permanently removed. Transactions will remain.',
+    'profile.deleteDataAlso':'The following data will also be permanently deleted:',
     // Profiles list
     'profiles.aboutTitle':'About Profiles',
     'profiles.aboutDesc':'Profiles let you track separate finances in one app — perfect for personal vs. business, or managing finances for different household members. Each profile has its own accounts, budgets, goals, and financial data.',
@@ -1452,7 +1490,7 @@ const TRANSLATIONS = {
     'action.save':'Opslaan','action.cancel':'Annuleren','action.delete':'Verwijderen',
     'action.add':'Toevoegen','action.create':'Aanmaken','action.edit':'Bewerken',
     'action.confirm':'Bevestigen','action.done':'Klaar','action.back':'Terug',
-    'action.seeAll':'Alles zien','action.reset':'Reset',
+    'action.seeAll':'Alles zien','action.reset':'Reset','action.all':'Alle',
     'settings.manage':'Beheren','settings.account':'Account',
     'settings.notifications':'Meldingen','settings.appearance':'Weergave',
     'settings.tutorial':'Rondleiding','settings.help':'Help & ondersteuning',
@@ -1555,6 +1593,17 @@ const TRANSLATIONS = {
     'home.everyEuroPlanned':'Elke euro gepland ✓',
     'home.unallocated':'Niet verdeeld — tik om te plannen',
     'home.switchProfile':'Profiel wisselen','home.manageProfiles':'Profielen beheren',
+    'home.notSynced':'Nog niet gesynchroniseerd','home.lastSync':'Laatste sync',
+    'word.account':'rekening','word.accounts':'rekeningen','word.noAccounts':'Geen rekeningen',
+    'notif.bankSync':'Banksync','notif.bankSyncSub':'Haal de nieuwste transacties op van je bank',
+    'notif.lastSynced':'Laatste sync','notif.syncNow':'Nu synchroniseren','notif.syncing':'Synchroniseren…',
+    'notif.txSynced':'{n} transactie gesynchroniseerd','notif.txsSynced':'{n} transacties gesynchroniseerd',
+    'notif.reviewNow':'Nu beoordelen','notif.recentTitle':'Recente meldingen',
+    'notif.devLogs':'Ontwikkelaarslogs','notif.clearLogs':'Logs wissen',
+    'notif.filterErrors':'Fouten','notif.filterWarnings':'Waarschuwingen','notif.filterInfo':'Info','notif.noLogs':'Geen logitems',
+    'notif.n12synced':'12 transacties gesynchroniseerd','notif.n12syncedSub':'2 uur geleden · allemaal gecategoriseerd',
+    'notif.n3review':'3 transacties vereisen beoordeling','notif.n3reviewSub':'2 uur geleden · tik om te beoordelen',
+    'notif.salary':'Salaris ontvangen','notif.salarySub':'Gisteren · +€2.480,00',
     // Review
     'review.noTxs':'Alles bijgewerkt',
     'review.noTxsSub':'Geen transacties hoeven te worden bekeken. We laten je weten wanneer er nieuwe aankomen.',
@@ -1574,6 +1623,7 @@ const TRANSLATIONS = {
     'profile.cannotDeleteOnly':'Kan het enige profiel niet verwijderen',
     'profile.deleteConfirmTitle':'Profiel verwijderen?',
     'profile.deleteConfirmDesc':'Dit profiel wordt permanent verwijderd. Transacties blijven behouden.',
+    'profile.deleteDataAlso':'De volgende gegevens worden ook permanent verwijderd:',
     'profiles.aboutTitle':'Over Profielen',
     'profiles.aboutDesc':'Profielen laten je afzonderlijke financiën bijhouden in één app — perfect voor persoonlijk vs. zakelijk, of voor het beheren van financiën voor verschillende huishoudleden. Elk profiel heeft zijn eigen rekeningen, budgetten, doelen en financiële gegevens.',
     'profile.newProfile':'Nieuw profiel','profile.profileName':'Profielnaam',
@@ -1616,7 +1666,7 @@ const TRANSLATIONS = {
     'action.save':'Kaydet','action.cancel':'İptal','action.delete':'Sil',
     'action.add':'Ekle','action.create':'Oluştur','action.edit':'Düzenle',
     'action.confirm':'Onayla','action.done':'Tamam','action.back':'Geri',
-    'action.seeAll':'Tümünü gör','action.reset':'Sıfırla',
+    'action.seeAll':'Tümünü gör','action.reset':'Sıfırla','action.all':'Tümü',
     'settings.manage':'Yönet','settings.account':'Hesap',
     'settings.notifications':'Bildirimler','settings.appearance':'Görünüm',
     'settings.tutorial':'Tur','settings.help':'Yardım ve destek',
@@ -1719,6 +1769,17 @@ const TRANSLATIONS = {
     'home.everyEuroPlanned':'Her euro planlandı ✓',
     'home.unallocated':'Dağıtılmamış — planlamak için dokunun',
     'home.switchProfile':'Profil değiştir','home.manageProfiles':'Profilleri yönet',
+    'home.notSynced':'Henüz senkronize edilmedi','home.lastSync':'Son senkronizasyon',
+    'word.account':'hesap','word.accounts':'hesap','word.noAccounts':'Hesap yok',
+    'notif.bankSync':'Banka senkronizasyonu','notif.bankSyncSub':'Bankandan en son işlemleri çek',
+    'notif.lastSynced':'Son senkronizasyon','notif.syncNow':'Şimdi senkronize et','notif.syncing':'Senkronize ediliyor…',
+    'notif.txSynced':'{n} işlem senkronize edildi','notif.txsSynced':'{n} işlem senkronize edildi',
+    'notif.reviewNow':'Şimdi incele','notif.recentTitle':'Son bildirimler',
+    'notif.devLogs':'Geliştirici günlükleri','notif.clearLogs':'Günlükleri temizle',
+    'notif.filterErrors':'Hatalar','notif.filterWarnings':'Uyarılar','notif.filterInfo':'Bilgi','notif.noLogs':'Günlük girişi yok',
+    'notif.n12synced':'12 işlem senkronize edildi','notif.n12syncedSub':'2 saat önce · tümü kategorize edildi',
+    'notif.n3review':'3 işlem inceleme gerektiriyor','notif.n3reviewSub':'2 saat önce · incelemek için dokun',
+    'notif.salary':'Maaş alındı','notif.salarySub':'Dün · +€2.480,00',
     // Review
     'review.noTxs':'Hepsi tamam',
     'review.noTxsSub':'Hiçbir işlem inceleme gerektirmiyor. Yenileri geldiğinde sizi bilgilendireceğiz.',
@@ -1738,6 +1799,7 @@ const TRANSLATIONS = {
     'profile.cannotDeleteOnly':'Tek profil silinemez',
     'profile.deleteConfirmTitle':'Profil silinsin mi?',
     'profile.deleteConfirmDesc':'Bu profil kalıcı olarak kaldırılacak. İşlemler kalacak.',
+    'profile.deleteDataAlso':'Aşağıdaki veriler de kalıcı olarak silinecek:',
     'profiles.aboutTitle':'Profiller Hakkında',
     'profiles.aboutDesc':'Profiller, ayrı finansmanları tek bir uygulamada takip etmenizi sağlar — kişisel ve iş, ya da farklı hane üyelerinin finansmanını yönetmek için mükemmel. Her profilin kendi hesapları, bütçeleri, hedefleri ve finansal verileri vardır.',
     'profile.newProfile':'Yeni profil','profile.profileName':'Profil adı',
@@ -2256,7 +2318,9 @@ function ScreenHome() {
 
   const activeProfile = profiles.find(p => p.active) || profiles[0];
   const [connectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
-  const [lastSyncedStr] = useLocalStorage('munni_last_synced', null);
+  const syncKey = React.useMemo(() => getUserSyncKey(), []);
+  const [lastSyncedStr] = useLocalStorage(syncKey, null);
+  const [notifUnread] = useLocalStorage('munni_notif_unread', 0);
   const activeAccountIds = activeProfile?.accountIds || [];
   const totalBalance = connectedAccounts
     .filter(a => a.type === 'checking' && activeAccountIds.includes(a.id))
@@ -2574,10 +2638,17 @@ function ScreenHome() {
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:3 }}>
             <div style={{ width:5, height:5, borderRadius:999, background:M.sage, flexShrink:0 }}/>
-            <div style={{ fontSize:11, color:M.ink3 }}>{lastSyncedStr ? `Last sync · ${fmtSyncTime(lastSyncedStr)}` : 'Not synced yet'}</div>
+            <div style={{ fontSize:11, color:M.ink3 }}>{lastSyncedStr ? `${t('home.lastSync')} · ${fmtSyncTime(lastSyncedStr)}` : t('home.notSynced')}</div>
           </div>
         </div>
-        <button className="m-iconbtn filled m-tap" onClick={() => nav.push('notifications')}><I name="bell" size={18}/></button>
+        <div style={{ position:'relative' }}>
+          <button className="m-iconbtn filled m-tap" onClick={() => nav.push('notifications')}><I name="bell" size={18}/></button>
+          {notifUnread > 0 && (
+            <div style={{ position:'absolute', top:-3, right:-3, minWidth:16, height:16, borderRadius:999, background:M.clay, display:'flex', alignItems:'center', justifyContent:'center', pointerEvents:'none' }}>
+              <span style={{ fontSize:9, fontWeight:700, color:'#fff', lineHeight:1, padding:'0 3px' }}>{notifUnread > 9 ? '9+' : notifUnread}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="m-body-scroll">
@@ -2595,9 +2666,10 @@ function ScreenHome() {
         <Sheet onClose={() => setShowProfileSwitcher(false)}>
           <div style={{ padding:'4px 16px 8px' }}>
             <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>{t('home.switchProfile')}</div>
-            <div className="m-card" style={{ border:`1px solid ${M.line}`, padding:'4px 16px', marginBottom:16 }}>
+            <div className="m-card" style={{ border:`1px solid ${M.line}`, padding:'4px 16px', marginBottom:16, maxHeight:'55vh', overflowY:'auto' }}>
               {profiles.map((p, i) => {
                 const acctCount = (p.accountIds || []).length;
+                const acctLabel = acctCount === 0 ? t('word.noAccounts') : `${acctCount} ${acctCount === 1 ? t('word.account') : t('word.accounts')}`;
                 return (
                   <React.Fragment key={p.id}>
                     {i > 0 && <Divider inset={48}/>}
@@ -2606,7 +2678,7 @@ function ScreenHome() {
                       <ProfileAvatar profile={p} size={36}/>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:14, fontWeight:600 }}>{p.name}</div>
-                        <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{acctCount} account{acctCount !== 1 ? 's' : ''}</div>
+                        <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{acctLabel}</div>
                       </div>
                       {p.active ? (
                         <div style={{ width:20, height:20, borderRadius:999, background:M.sage, display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -4144,8 +4216,7 @@ function ScreenProfile() {
   const cancel = () => setEditing(false);
   const initial = (name || '?').charAt(0).toUpperCase();
 
-  const activeProfile = profiles.find(p => p.active) || profiles[0];
-  const isDemo = activeProfile?.id === 'p_demo' || activeProfile?.isDemo;
+  const isDemo = localStorage.getItem('munni_last_login_method') === 'bank';
   const connectedBanks = connectedAccounts.filter(a => a.type === 'checking').length;
   const _lastMethod = localStorage.getItem('munni_last_login_method') || '';
   const emailDisplay = isDemo ? 'demo@munni.app' : (email && !['google@munni.app','apple@munni.app','bank@munni.app',''].includes(email)) ? email : _lastMethod === 'google' ? t('login.signedInGoogle') : _lastMethod === 'apple' ? t('login.signedInApple') : (email || '');
@@ -4324,7 +4395,9 @@ function ScreenProfiles() {
     const trimmed = newProfileName.trim();
     if (!trimmed) return;
     if (profiles.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) {
-      setNewProfileError(t('profile.duplicateName')); return;
+      setNewProfileError(t('profile.duplicateName'));
+      addDevLog('warn', `Profile creation blocked: duplicate name "${trimmed}"`, 'ScreenProfiles:createProfile');
+      return;
     }
     const randomAv = STOCK_AVATARS[Math.floor(Math.random() * STOCK_AVATARS.length)];
     const newP = {
@@ -4624,9 +4697,31 @@ function ScreenProfileDetail({ params }) {
         <Sheet onClose={() => setShowDeleteConfirm(false)}>
           <div style={{ padding:'4px 16px 8px' }}>
             <div style={{ fontSize:17, fontWeight:700, marginBottom:8 }}>{t('profile.deleteConfirmTitle')}</div>
-            <div style={{ fontSize:14, color:M.ink3, lineHeight:1.5, marginBottom:20 }}>
+            <div style={{ fontSize:14, color:M.ink3, lineHeight:1.5, marginBottom:12 }}>
               {t('profile.deleteConfirmDesc')}
             </div>
+            {(() => {
+              const pid = profile.id;
+              const safeLoad = key => { try { return JSON.parse(localStorage.getItem(key) || 'null') || []; } catch { return []; } };
+              const budgets = safeLoad(`munni_budgets_${pid}`);
+              const goals = safeLoad(`munni_goals_${pid}`);
+              const debts = safeLoad(`munni_debts_${pid}`);
+              const topics = safeLoad(`munni_topics_${pid}`);
+              const items = [
+                budgets.length && `${budgets.length} budget${budgets.length > 1 ? 's' : ''}`,
+                goals.length && `${goals.length} goal${goals.length > 1 ? 's' : ''}`,
+                debts.length && `${debts.length} debt${debts.length > 1 ? 's' : ''}`,
+                topics.length && `${topics.length} allocation topic${topics.length > 1 ? 's' : ''}`,
+              ].filter(Boolean);
+              if (!items.length) return null;
+              return (
+                <div style={{ padding:'10px 12px', marginBottom:12, borderRadius:10, background:M.claySoft, border:`1px solid ${M.clay}33` }}>
+                  <div style={{ fontSize:12, color:M.clay, fontWeight:600, marginBottom:4 }}>{t('profile.deleteDataAlso')}</div>
+                  <div style={{ fontSize:12, color:M.ink2 }}>{items.join(' · ')}</div>
+                </div>
+              );
+            })()}
+            <div style={{ marginBottom:20 }}/>
             <button onClick={deleteProfile}
               style={{ width:'100%', padding:'14px 0', background:M.clay, color:'#fff', border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, marginBottom:10 }}>
               {t('profile.deleteProfile')}
@@ -5562,9 +5657,13 @@ function ScreenNotifications() {
   const { t } = useLang();
   const { addTxs, txs } = useTxCtx();
   const [syncing, setSyncing] = React.useState(false);
-  const [lastSyncedStr, setLastSyncedStr] = useLocalStorage('munni_last_synced', null);
+  const syncKey = React.useMemo(() => getUserSyncKey(), []);
+  const [lastSyncedStr, setLastSyncedStr] = useLocalStorage(syncKey, null);
   const [newCount, setNewCount] = React.useState(0);
   const [syncedReviewCount, setSyncedReviewCount] = React.useState(0);
+  const [, setNotifUnread] = useLocalStorage('munni_notif_unread', 0);
+
+  React.useEffect(() => { setNotifUnread(0); }, []);
 
   const MERCHANTS_POOL = [
     { merchant:'Albert Heijn',       desc:'AH 5821',        cat:'groceries',       min:8,  max:85,  needsReview:true },
@@ -5609,40 +5708,40 @@ function ScreenNotifications() {
               <I name="sync" size={20} color={M.sage}/>
             </div>
             <div style={{ flex:1 }}>
-              <div style={{ fontSize:15, fontWeight:600 }}>Bank sync</div>
-              <div style={{ fontSize:12, color:M.ink3, marginTop:2 }}>{lastSyncedStr ? `Last synced ${fmtSyncTime(lastSyncedStr)}` : 'Pull latest transactions from your bank'}</div>
+              <div style={{ fontSize:15, fontWeight:600 }}>{t('notif.bankSync')}</div>
+              <div style={{ fontSize:12, color:M.ink3, marginTop:2 }}>{lastSyncedStr ? `${t('notif.lastSynced')} ${fmtSyncTime(lastSyncedStr)}` : t('notif.bankSyncSub')}</div>
             </div>
           </div>
           <button className="m-btn sage m-tap" style={{ width:'100%' }} onClick={handleSync} disabled={syncing}>
             {syncing ? (
-              <><I name="sync" size={16} color="#fff"/> Syncing…</>
+              <><I name="sync" size={16} color="#fff"/> {t('notif.syncing')}</>
             ) : (
-              <><I name="sync" size={16} color="#fff"/> Sync now</>
+              <><I name="sync" size={16} color="#fff"/> {t('notif.syncNow')}</>
             )}
           </button>
           {newCount > 0 && (
             <div style={{ marginTop:10, borderRadius:10, overflow:'hidden', border:`1px solid ${M.ochreSoft}` }}>
               <div style={{ padding:'8px 12px', background:M.ochreSoft, fontSize:12, color:M.ochre, fontWeight:500 }}>
-                {newCount} transaction{newCount > 1 ? 's' : ''} synced
+                {newCount === 1 ? t('notif.txSynced') : `${newCount} ${t('notif.txsSynced')}`}
               </div>
               <button className="m-tap" onClick={() => { setNewCount(0); nav.push('reviewSwipe'); }} style={{
                 width:'100%', padding:'9px 12px', background:'#fff', border:'none', borderTop:`1px solid ${M.line2}`,
                 display:'flex', alignItems:'center', gap:8, fontSize:12, fontWeight:600, color:M.ochre, cursor:'pointer',
               }}>
                 <I name="sliders" size={13} color={M.ochre}/>
-                Review now
+                {t('notif.reviewNow')}
                 <I name="arrowR" size={12} color={M.ochre} style={{ marginLeft:'auto' }}/>
               </button>
             </div>
           )}
         </div>
 
-        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>Recent notifications</div>
+        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('notif.recentTitle')}</div>
         <div className="m-card" style={{ padding:'4px 16px', marginBottom:16, border:`1px solid ${M.line}` }}>
           {[
-            { icon:'check', color:M.sage, title:'12 transactions synced', sub:'2 hours ago · all categorised' },
-            { icon:'alert', color:M.ochre, title:'3 transactions need review', sub:'2 hours ago · tap to review' },
-            { icon:'wallet', color:M.violet, title:'Salary received', sub:'Yesterday · +€2,480.00' },
+            { icon:'check', color:M.sage, title:t('notif.n12synced'), sub:t('notif.n12syncedSub') },
+            { icon:'alert', color:M.ochre, title:t('notif.n3review'), sub:t('notif.n3reviewSub') },
+            { icon:'wallet', color:M.violet, title:t('notif.salary'), sub:t('notif.salarySub') },
           ].map((n, i, a) => (
             <React.Fragment key={i}>
               <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0' }}>
@@ -5666,28 +5765,43 @@ function ScreenNotifications() {
   );
 }
 
+const DEFAULT_DEV_LOGS = [
+  { id:'l1',  level:'error', msg:'localStorage key munni_topics_p_demo parse error: Unexpected token', ts:'Today 09:18',     src:'useLocalStorage:14' },
+  { id:'l2',  level:'warn',  msg:'CategoryPicker: unknown catId "custom_xyz" in profile p_demo',        ts:'Today 11:42',     src:'CategoryPicker:87' },
+  { id:'l3',  level:'warn',  msg:'TxCtx: transaction t_sync_1747 has no matching account — skipped',   ts:'Yesterday 18:30', src:'TxCtx:52' },
+  { id:'l4',  level:'info',  msg:'PeriodCtx: period_day changed 1→18, rebuilding period history',       ts:'Yesterday 15:02', src:'PeriodCtx:34' },
+  { id:'l5',  level:'info',  msg:'AllocProvider: loaded 3 topics for profile p1',                       ts:'Yesterday 14:55', src:'AllocProvider:21' },
+  { id:'l6',  level:'error', msg:'ScreenExpenses: failed to parse munni_budgets_p2 — defaulting to []', ts:'Yesterday 12:11', src:'ScreenExpenses:203' },
+  { id:'l7',  level:'warn',  msg:'SyncHandler: duplicate transaction id tsync_1748 skipped',            ts:'Yesterday 10:05', src:'SyncHandler:88' },
+  { id:'l8',  level:'info',  msg:'ProfilesProvider: loaded key munni_profiles_google (1 profiles)',     ts:'Yesterday 09:30', src:'ProfilesProvider:12' },
+  { id:'l9',  level:'warn',  msg:'ReviewSwipe: previewTx cat "other" has no icon — using fallback',     ts:'2 days ago 16:44', src:'ReviewSwipe:61' },
+  { id:'l10', level:'info',  msg:'TxCtx: 142 transactions loaded for account main',                     ts:'2 days ago 08:00', src:'TxCtx:29' },
+  { id:'l11', level:'error', msg:'GoalsCtx: munni_goals_p3 corrupt — resetting to defaults',            ts:'3 days ago 20:15', src:'GoalsCtx:17' },
+  { id:'l12', level:'info',  msg:'LangCtx: language changed to nl',                                     ts:'3 days ago 11:22', src:'LangCtx:8' },
+];
+
 function LogPanel() {
+  const { t } = useLang();
   const [open, setOpen] = React.useState(false);
   const [filter, setFilter] = React.useState('all');
+  const [logs, setLogs] = useLocalStorage('munni_dev_logs', DEFAULT_DEV_LOGS);
   const [readIds, setReadIds] = useLocalStorage('munni_log_read', []);
 
-  const LOGS = [
-    { id:'l1', level:'error', msg:'localStorage key munni_topics_p_demo parse error: Unexpected token', ts:'Today 09:18', src:'useLocalStorage:14' },
-    { id:'l2', level:'warn',  msg:'CategoryPicker: unknown catId "custom_xyz" in profile p_demo',         ts:'Today 11:42', src:'CategoryPicker:87' },
-    { id:'l3', level:'warn',  msg:'TxCtx: transaction t_sync_1747 has no matching account — skipped',    ts:'Yesterday 18:30', src:'TxCtx:52' },
-    { id:'l4', level:'info',  msg:'PeriodCtx: period_day changed 1→18, rebuilding period history',        ts:'Yesterday 15:02', src:'PeriodCtx:34' },
-    { id:'l5', level:'info',  msg:'AllocProvider: loaded 3 topics for profile p1',                        ts:'Yesterday 14:55', src:'AllocProvider:21' },
-  ];
-
-  const errCount = LOGS.filter(l => l.level==='error' && !readIds.includes(l.id)).length;
-  const warnCount = LOGS.filter(l => l.level==='warn' && !readIds.includes(l.id)).length;
+  const errCount = logs.filter(l => l.level==='error' && !readIds.includes(l.id)).length;
+  const warnCount = logs.filter(l => l.level==='warn' && !readIds.includes(l.id)).length;
 
   const handleOpen = () => {
     setOpen(true);
-    setReadIds(LOGS.map(l => l.id));
+    setReadIds(logs.map(l => l.id));
   };
 
-  const filtered = filter === 'all' ? LOGS : LOGS.filter(l => l.level === filter);
+  const handleClear = (e) => {
+    e.stopPropagation();
+    setLogs([]);
+    setReadIds([]);
+  };
+
+  const filtered = filter === 'all' ? logs : logs.filter(l => l.level === filter);
   const levelColor = { error: M.clay, warn: M.ochre, info: M.ink3 };
   const levelBg = { error: M.claySoft, warn: M.ochreSoft, info: M.paper2 };
 
@@ -5702,8 +5816,8 @@ function LogPanel() {
           <I name="alert" size={16} color={errCount>0?M.clay:M.ink3}/>
         </div>
         <div style={{ flex:1 }}>
-          <div style={{ fontSize:14, fontWeight:600, color:M.ink }}>Developer logs</div>
-          <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{LOGS.length} entries</div>
+          <div style={{ fontSize:14, fontWeight:600, color:M.ink }}>{t('notif.devLogs')}</div>
+          <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{logs.length} entries</div>
         </div>
         {(errCount > 0 || warnCount > 0) && (
           <div style={{ display:'flex', gap:4 }}>
@@ -5715,10 +5829,20 @@ function LogPanel() {
       </button>
 
       {open && (
-        <Sheet onClose={() => setOpen(false)} title="Developer logs">
-          <div style={{ marginBottom:12 }}>
+        <Sheet onClose={() => setOpen(false)}>
+          <div style={{ padding:'4px 16px 0', display:'flex', alignItems:'center', marginBottom:12 }}>
+            <div style={{ fontSize:17, fontWeight:700, flex:1 }}>{t('notif.devLogs')}</div>
+            {logs.length > 0 && (
+              <button className="m-tap" onClick={handleClear} style={{
+                padding:'5px 12px', borderRadius:8, border:`1px solid ${M.clay}44`,
+                background:M.claySoft, color:M.clay, fontSize:12, fontWeight:600,
+                cursor:'pointer', fontFamily:M.fontUI,
+              }}>{t('notif.clearLogs')}</button>
+            )}
+          </div>
+          <div style={{ padding:'0 16px', marginBottom:12 }}>
             <div style={{ display:'flex', gap:6 }}>
-              {[['all','All'],['error','Errors'],['warn','Warnings'],['info','Info']].map(([key,lbl]) => (
+              {[['all',t('action.all')],['error',t('notif.filterErrors')],['warn',t('notif.filterWarnings')],['info',t('notif.filterInfo')]].map(([key,lbl]) => (
                 <button key={key} className="m-tap" onClick={() => setFilter(key)} style={{
                   flex:1, padding:'6px 0', borderRadius:8, fontSize:11, fontWeight:600,
                   border:`1px solid ${filter===key?M.sage:M.line}`,
@@ -5728,9 +5852,11 @@ function LogPanel() {
               ))}
             </div>
           </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {filtered.map(log => (
-              <div key={log.id} style={{ padding:'10px 12px', borderRadius:10, background:levelBg[log.level], border:`1px solid ${levelColor[log.level]}22` }}>
+          <div style={{ padding:'0 16px 16px', maxHeight:320, overflowY:'auto', display:'flex', flexDirection:'column', gap:8 }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding:'24px 0', textAlign:'center', color:M.ink4, fontSize:13 }}>{t('notif.noLogs')}</div>
+            ) : filtered.map(log => (
+              <div key={log.id} style={{ padding:'10px 12px', borderRadius:10, background:levelBg[log.level], border:`1px solid ${levelColor[log.level]}22`, flexShrink:0 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
                   <span style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:999, background:levelColor[log.level], color:'#fff', textTransform:'uppercase' }}>{log.level}</span>
                   <span style={{ fontSize:10, color:M.ink4, flex:1 }}>{log.src}</span>
@@ -7922,7 +8048,26 @@ const useCatCtx = () => React.useContext(CatCtx);
 // ── Profiles context — single source of truth ──────────────────
 const ProfilesCtx = React.createContext(null);
 function ProfilesProvider({ children }) {
-  const [profiles, setProfiles] = useLocalStorage('munni_profiles', DEFAULT_PROFILES);
+  const profileKey = React.useMemo(() => {
+    const method = localStorage.getItem('munni_last_login_method') || '';
+    if (method === 'google') return 'munni_profiles_google';
+    if (method === 'apple') return 'munni_profiles_apple';
+    if (method === 'bank') return 'munni_profiles_bank';
+    try {
+      const e = JSON.parse(localStorage.getItem('munni_profile_email') || '""');
+      if (e && !['google@munni.app','apple@munni.app','bank@munni.app',''].includes(e))
+        return `munni_profiles_${e}`;
+    } catch {}
+    return 'munni_profiles';
+  }, []);
+  const defaultForUser = React.useMemo(() => {
+    const method = localStorage.getItem('munni_last_login_method') || '';
+    if (method === 'google') return [{ id:'p1', name:'Personal', icon:'user', active:true, accountIds:['main','save','inv'], picture:null }];
+    if (method === 'apple') return [{ id:'p2', name:'Family', icon:'house', active:true, accountIds:['main'], picture:null }];
+    if (method === 'bank') return [{ id:'p_demo', name:'Demo', icon:'user', active:true, accountIds:['main','save'], picture:'av7', isDemo:true }];
+    return [{ id:'p3', name:'Freelance', icon:'bag', active:true, accountIds:['main'], picture:null }];
+  }, []);
+  const [profiles, setProfiles] = useLocalStorage(profileKey, defaultForUser);
   return <ProfilesCtx.Provider value={{ profiles, setProfiles }}>{children}</ProfilesCtx.Provider>;
 }
 const useProfiles = () => React.useContext(ProfilesCtx);
