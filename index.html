@@ -481,6 +481,23 @@ function IcoMDI({ name, size = 20, color }) {
     }}/>
   );
 }
+function IcoGoogle({ size = 20 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} style={{ display:'block', flexShrink:0 }}>
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  );
+}
+function IcoApple({ size = 20, color = 'currentColor' }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill={color} style={{ display:'block', flexShrink:0 }}>
+      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+    </svg>
+  );
+}
 function CatIcon({ cat, size = 20, color }) {
   if (!cat) return <IcoMDI name="help-circle-outline" size={size} color={color}/>;
   return <IcoMDI name={cat.icon || 'help-circle-outline'} size={size} color={color}/>;
@@ -734,10 +751,11 @@ function fmtSyncTime(isoStr) {
   return `${day} ${mon} ${d.getFullYear()}, ${hm}`;
 }
 
+const DEMO_ACCOUNT_IDS = ['main', 'save', 'inv'];
 const ACCOUNTS = [
-  { id: 'main', name: 'Main · ING',     iban: 'NL47…4231', balance: 5240.18, type: 'checking', color: '#4A6A4F' },
-  { id: 'save', name: 'Savings · ING',  iban: 'NL47…7782', balance: 3120.50, type: 'savings',  color: '#A8782B' },
-  { id: 'inv',  name: 'Brokerage · DEGIRO', iban: 'NL47…1015', balance: 365.00, type: 'invest', color: '#5E4A78' },
+  { id: 'main', name: 'Main · ING',     iban: 'NL47…4231', balance: 5240.18, type: 'checking', color: '#4A6A4F', isDemo: true },
+  { id: 'save', name: 'Savings · ING',  iban: 'NL47…7782', balance: 3120.50, type: 'savings',  color: '#A8782B', isDemo: true },
+  { id: 'inv',  name: 'Brokerage · DEGIRO', iban: 'NL47…1015', balance: 365.00, type: 'invest', color: '#5E4A78', isDemo: true },
 ];
 
 
@@ -1332,9 +1350,39 @@ const TRANSLATIONS = {
     'login.demoUser':'Continue as demo user','login.changeLanguage':'Change language',
     'login.terms':'By continuing you agree to our Terms & Privacy Policy',
     'login.or':'or','login.signIn':'Sign in',
+    'login.welcomeFirst':'Welcome',
+    'login.termsIntro':'By continuing you agree to our',
+    'login.termsLinkText':'Terms of Service','login.termsAnd':'and',
+    'login.termsPrivacy':'Privacy Policy','login.termsSuffix':'',
+    'login.signingIn':'Signing in with',
+    'login.noAccountTitle':'No account found',
+    'login.noAccountSub':"We couldn't find an account linked to your account.",
+    'login.noAccountDesc':'Go back and try a different sign-in method, or continue to create a new account.',
+    'login.noAccountBack':'Back to login','login.noAccountContinue':'Create account',
+    'login.noAccountCustom':'Sign up with email instead',
+    'login.createAccountTitle':'Create account','login.createAccountSub':'Choose how to sign up',
+    'login.signUpEmail':'Sign up with email',
+    'login.createAccountEmailSub':'Sign up with your email address',
+    'login.fullName':'Full name','login.namePlaceholder':'Your name',
+    'login.emailPlaceholder':'sample@munni.app',
+    'login.sendCode':'Send verification code',
+    'login.checkEmail':'Check your email',
+    'login.codeSentTo':'We sent a 6-digit code to',
+    'login.autoFilling':'Auto-filling code…',
+    'login.signInTitle':'Sign in','login.signInSub':'Enter your email address',
+    'login.emailNotFound':'No account found. Create one instead?',
+    'login.errGoogleExists':'A Google account is already registered. Sign in instead.',
+    'login.errAppleExists':'An Apple account is already registered. Sign in instead.',
+    'login.errEmailExists':'This email is already registered. Sign in instead.',
+    'login.errInvalidEmail':'Please enter a valid email address.',
+    'login.errNameRequired':'Name must be at least 2 characters.',
+    'login.signedInGoogle':'Signed in with Google',
+    'login.signedInApple':'Signed in with Apple',
+    'login.connectedEmail':'Connected account',
+    'lang.availableNow':'Available now',
     // Home screen
     'home.totalBalance':'Total balance','home.income':'Income','home.spent':'Spent',
-    'home.invested':'Invested','home.savings':'Savings','home.allocate':'Allocate',
+    'home.invested':'Invested','home.savings':'Savings','home.allocate':'Allocate','invest.cardTitle':'Investments',
     'home.everyEuroPlanned':'Every euro planned ✓',
     'home.unallocated':'Unallocated — tap to plan',
     'home.switchProfile':'Switch profile','home.manageProfiles':'Manage profiles',
@@ -1345,6 +1393,35 @@ const TRANSLATIONS = {
     // Settings extra
     'settings.profiles':'Profiles','settings.customizeHome':'Customize home',
     'settings.periods':'Period settings','settings.deleteData':'Delete all data',
+    // Profile detail
+    'screen.profile':'Profile',
+    'profile.changePhoto':'Change photo','profile.choosePhoto':'Choose photo',
+    'profile.tapRename':'tap to rename','profile.active':'Active profile',
+    'profile.mainAccounts':'Main accounts','profile.mainAccountsSub':'Transactions will sync to this profile',
+    'profile.noChecking':'No checking accounts connected',
+    'profile.savingAccounts':'Saving & investment accounts','profile.noSaving':'No saving accounts connected',
+    'profile.manageAccounts':'Manage accounts',
+    'profile.deleteProfile':'Delete profile',
+    'profile.cannotDeleteActive':'Cannot delete the active profile — switch first',
+    'profile.cannotDeleteOnly':'Cannot delete the only profile',
+    'profile.deleteConfirmTitle':'Delete profile?',
+    'profile.deleteConfirmDesc':'This profile will be permanently removed. Transactions will remain.',
+    // Profiles list
+    'profiles.aboutTitle':'About Profiles',
+    'profiles.aboutDesc':'Profiles let you track separate finances in one app — perfect for personal vs. business, or managing finances for different household members. Each profile has its own accounts, budgets, goals, and financial data.',
+    // New profile sheet
+    'profile.newProfile':'New profile','profile.profileName':'Profile name',
+    'profile.namePlaceholder':'e.g. Business, Partner, Side hustle…','profile.profileType':'Profile type',
+    'profile.typeReal':'Real','profile.typeRealSub':'Connect your actual bank accounts',
+    'profile.typeDemo':'Demo','profile.typeDemoSub':'Uses sample data for testing',
+    'profile.createProfile':'Create profile','profile.duplicateName':'A profile with this name already exists',
+    // Picture picker
+    'profile.picTitle':'Profile picture','profile.chooseLibrary':'Choose from library','profile.removePic':'Remove picture',
+    // Accounts
+    'accounts.demoSection':'Demo accounts','accounts.demoDesc':'Sample data · read-only',
+    'accounts.yourSection':'Your accounts','accounts.bankSection':'Bank accounts','accounts.savingSection':'Saving & investment',
+    'accounts.noBank':'No bank accounts connected','accounts.noSaving':'No saving accounts added',
+    'accounts.connectBank':'Connect bank','accounts.addManual':'Add manual account',
     'settings.darkMode':'Dark mode',
     'settings.darkModeOn':'On — tap to switch to light','settings.darkModeOff':'Off — tap to switch to dark',
     'settings.resetDemo':'Reset demo data','settings.resetDemoSub':'Restore all transactions & settings',
@@ -1442,9 +1519,39 @@ const TRANSLATIONS = {
     'login.demoUser':'Doorgaan als demo gebruiker','login.changeLanguage':'Taal wijzigen',
     'login.terms':'Door door te gaan ga je akkoord met onze Voorwaarden & Privacybeleid',
     'login.or':'of','login.signIn':'Aanmelden',
+    'login.welcomeFirst':'Welkom',
+    'login.termsIntro':'Door door te gaan ga je akkoord met onze',
+    'login.termsLinkText':'Gebruiksvoorwaarden','login.termsAnd':'en',
+    'login.termsPrivacy':'Privacybeleid','login.termsSuffix':'',
+    'login.signingIn':'Aanmelden bij',
+    'login.noAccountTitle':'Geen account gevonden',
+    'login.noAccountSub':'Er is geen account gevonden dat is gekoppeld aan jouw account.',
+    'login.noAccountDesc':'Ga terug en probeer een andere methode, of ga door om een nieuw account aan te maken.',
+    'login.noAccountBack':'Terug naar inloggen','login.noAccountContinue':'Account aanmaken',
+    'login.noAccountCustom':'Aanmelden met e-mail',
+    'login.createAccountTitle':'Account aanmaken','login.createAccountSub':'Kies hoe je wilt aanmelden',
+    'login.signUpEmail':'Aanmelden met e-mail',
+    'login.createAccountEmailSub':'Aanmelden met je e-mailadres',
+    'login.fullName':'Volledige naam','login.namePlaceholder':'Je naam',
+    'login.emailPlaceholder':'voorbeeld@munni.app',
+    'login.sendCode':'Verificatiecode versturen',
+    'login.checkEmail':'Controleer je e-mail',
+    'login.codeSentTo':'We hebben een 6-cijferige code gestuurd naar',
+    'login.autoFilling':'Code wordt ingevuld…',
+    'login.signInTitle':'Aanmelden','login.signInSub':'Voer je e-mailadres in',
+    'login.emailNotFound':'Geen account gevonden. Wil je er een aanmaken?',
+    'login.errGoogleExists':'Er is al een Google account geregistreerd. Log in.',
+    'login.errAppleExists':'Er is al een Apple account geregistreerd. Log in.',
+    'login.errEmailExists':'Dit e-mailadres is al geregistreerd. Log in.',
+    'login.errInvalidEmail':'Voer een geldig e-mailadres in.',
+    'login.errNameRequired':'Naam moet minimaal 2 tekens bevatten.',
+    'login.signedInGoogle':'Aangemeld via Google',
+    'login.signedInApple':'Aangemeld via Apple',
+    'login.connectedEmail':'Gekoppeld account',
+    'lang.availableNow':'Nu beschikbaar',
     // Home screen
     'home.totalBalance':'Totaal saldo','home.income':'Inkomsten','home.spent':'Uitgegeven',
-    'home.invested':'Geïnvesteerd','home.savings':'Spaargeld','home.allocate':'Verdelen',
+    'home.invested':'Geïnvesteerd','home.savings':'Spaargeld','home.allocate':'Verdelen','invest.cardTitle':'Beleggingen',
     'home.everyEuroPlanned':'Elke euro gepland ✓',
     'home.unallocated':'Niet verdeeld — tik om te plannen',
     'home.switchProfile':'Profiel wisselen','home.manageProfiles':'Profielen beheren',
@@ -1455,6 +1562,30 @@ const TRANSLATIONS = {
     // Settings extra
     'settings.profiles':'Profielen','settings.customizeHome':'Startscherm aanpassen',
     'settings.periods':'Periode-instellingen','settings.deleteData':'Alle gegevens verwijderen',
+    'screen.profile':'Profiel',
+    'profile.changePhoto':'Foto wijzigen','profile.choosePhoto':'Foto kiezen',
+    'profile.tapRename':'tik om te hernoemen','profile.active':'Actief profiel',
+    'profile.mainAccounts':'Hoofdrekeningen','profile.mainAccountsSub':'Transacties synchroniseren naar dit profiel',
+    'profile.noChecking':'Geen betaalrekeningen verbonden',
+    'profile.savingAccounts':'Spaar- en beleggingsrekeningen','profile.noSaving':'Geen spaarrekeningen verbonden',
+    'profile.manageAccounts':'Rekeningen beheren',
+    'profile.deleteProfile':'Profiel verwijderen',
+    'profile.cannotDeleteActive':'Kan het actieve profiel niet verwijderen — schakel eerst over',
+    'profile.cannotDeleteOnly':'Kan het enige profiel niet verwijderen',
+    'profile.deleteConfirmTitle':'Profiel verwijderen?',
+    'profile.deleteConfirmDesc':'Dit profiel wordt permanent verwijderd. Transacties blijven behouden.',
+    'profiles.aboutTitle':'Over Profielen',
+    'profiles.aboutDesc':'Profielen laten je afzonderlijke financiën bijhouden in één app — perfect voor persoonlijk vs. zakelijk, of voor het beheren van financiën voor verschillende huishoudleden. Elk profiel heeft zijn eigen rekeningen, budgetten, doelen en financiële gegevens.',
+    'profile.newProfile':'Nieuw profiel','profile.profileName':'Profielnaam',
+    'profile.namePlaceholder':'bijv. Zakelijk, Partner, Bijbaan…','profile.profileType':'Profieltype',
+    'profile.typeReal':'Echt','profile.typeRealSub':'Verbind je echte bankrekeningen',
+    'profile.typeDemo':'Demo','profile.typeDemoSub':'Gebruikt voorbeeldgegevens voor testen',
+    'profile.createProfile':'Profiel aanmaken','profile.duplicateName':'Een profiel met deze naam bestaat al',
+    'profile.picTitle':'Profielfoto','profile.chooseLibrary':'Kies uit bibliotheek','profile.removePic':'Foto verwijderen',
+    'accounts.demoSection':'Demo-rekeningen','accounts.demoDesc':'Voorbeeldgegevens · alleen-lezen',
+    'accounts.yourSection':'Jouw rekeningen','accounts.bankSection':'Bankrekeningen','accounts.savingSection':'Spaar & beleggingen',
+    'accounts.noBank':'Geen bankrekeningen verbonden','accounts.noSaving':'Geen spaarrekeningen toegevoegd',
+    'accounts.connectBank':'Bank verbinden','accounts.addManual':'Handmatige rekening toevoegen',
     'settings.darkMode':'Donkere modus',
     'settings.darkModeOn':'Aan — tik om naar licht te schakelen','settings.darkModeOff':'Uit — tik om naar donker te schakelen',
     'settings.resetDemo':'Demogegevens herstellen','settings.resetDemoSub':'Alle transacties en instellingen herstellen',
@@ -1552,9 +1683,39 @@ const TRANSLATIONS = {
     'login.demoUser':'Demo kullanıcı olarak devam et','login.changeLanguage':'Dili değiştir',
     'login.terms':'Devam ederek Şartlarımızı ve Gizlilik Politikamızı kabul etmiş olursunuz',
     'login.or':'veya','login.signIn':'Giriş yap',
+    'login.welcomeFirst':'Hoş geldiniz',
+    'login.termsIntro':'Devam ederek',
+    'login.termsLinkText':'Kullanım Şartlarını','login.termsAnd':'ve',
+    'login.termsPrivacy':'Gizlilik Politikasını','login.termsSuffix':'kabul etmiş olursunuz',
+    'login.signingIn':'Giriş yapılıyor:',
+    'login.noAccountTitle':'Hesap bulunamadı',
+    'login.noAccountSub':'Hesabınıza bağlı bir hesap bulunamadı.',
+    'login.noAccountDesc':'Geri dönüp farklı bir yöntem deneyebilir veya yeni hesap oluşturmak için devam edebilirsiniz.',
+    'login.noAccountBack':'Girişe geri dön','login.noAccountContinue':'Hesap oluştur',
+    'login.noAccountCustom':'E-posta ile kayıt ol',
+    'login.createAccountTitle':'Hesap oluştur','login.createAccountSub':'Nasıl kayıt olmak istediğinizi seçin',
+    'login.signUpEmail':'E-posta ile kayıt ol',
+    'login.createAccountEmailSub':'E-posta adresinizle kayıt olun',
+    'login.fullName':'Ad Soyad','login.namePlaceholder':'Adınız',
+    'login.emailPlaceholder':'ornek@munni.app',
+    'login.sendCode':'Doğrulama kodu gönder',
+    'login.checkEmail':'E-postanızı kontrol edin',
+    'login.codeSentTo':'Şu adrese 6 haneli bir kod gönderdik:',
+    'login.autoFilling':'Kod otomatik dolduruluyor…',
+    'login.signInTitle':'Giriş yap','login.signInSub':'E-posta adresinizi girin',
+    'login.emailNotFound':'Bu e-posta için hesap bulunamadı. Hesap oluşturmak ister misiniz?',
+    'login.errGoogleExists':'Bir Google hesabı zaten kayıtlı. Giriş yapın.',
+    'login.errAppleExists':'Bir Apple hesabı zaten kayıtlı. Giriş yapın.',
+    'login.errEmailExists':'Bu e-posta adresi zaten kayıtlı. Giriş yapın.',
+    'login.errInvalidEmail':'Lütfen geçerli bir e-posta adresi girin.',
+    'login.errNameRequired':'Ad en az 2 karakter olmalıdır.',
+    'login.signedInGoogle':'Google ile giriş yapıldı',
+    'login.signedInApple':'Apple ile giriş yapıldı',
+    'login.connectedEmail':'Bağlı hesap',
+    'lang.availableNow':'Şu an mevcut',
     // Home screen
     'home.totalBalance':'Toplam bakiye','home.income':'Gelir','home.spent':'Harcandı',
-    'home.invested':'Yatırıldı','home.savings':'Tasarruf','home.allocate':'Dağıt',
+    'home.invested':'Yatırıldı','home.savings':'Tasarruf','home.allocate':'Dağıt','invest.cardTitle':'Yatırımlar',
     'home.everyEuroPlanned':'Her euro planlandı ✓',
     'home.unallocated':'Dağıtılmamış — planlamak için dokunun',
     'home.switchProfile':'Profil değiştir','home.manageProfiles':'Profilleri yönet',
@@ -1565,6 +1726,30 @@ const TRANSLATIONS = {
     // Settings extra
     'settings.profiles':'Profiller','settings.customizeHome':'Ana ekranı özelleştir',
     'settings.periods':'Dönem ayarları','settings.deleteData':'Tüm verileri sil',
+    'screen.profile':'Profil',
+    'profile.changePhoto':'Fotoğrafı değiştir','profile.choosePhoto':'Fotoğraf seç',
+    'profile.tapRename':'yeniden adlandırmak için dokun','profile.active':'Aktif profil',
+    'profile.mainAccounts':'Ana hesaplar','profile.mainAccountsSub':'İşlemler bu profile senkronize edilir',
+    'profile.noChecking':'Bağlı çek hesabı yok',
+    'profile.savingAccounts':'Tasarruf ve yatırım hesapları','profile.noSaving':'Bağlı tasarruf hesabı yok',
+    'profile.manageAccounts':'Hesapları yönet',
+    'profile.deleteProfile':'Profili sil',
+    'profile.cannotDeleteActive':'Aktif profil silinemez — önce değiştirin',
+    'profile.cannotDeleteOnly':'Tek profil silinemez',
+    'profile.deleteConfirmTitle':'Profil silinsin mi?',
+    'profile.deleteConfirmDesc':'Bu profil kalıcı olarak kaldırılacak. İşlemler kalacak.',
+    'profiles.aboutTitle':'Profiller Hakkında',
+    'profiles.aboutDesc':'Profiller, ayrı finansmanları tek bir uygulamada takip etmenizi sağlar — kişisel ve iş, ya da farklı hane üyelerinin finansmanını yönetmek için mükemmel. Her profilin kendi hesapları, bütçeleri, hedefleri ve finansal verileri vardır.',
+    'profile.newProfile':'Yeni profil','profile.profileName':'Profil adı',
+    'profile.namePlaceholder':'örn. İş, Ortak, Ek İş…','profile.profileType':'Profil türü',
+    'profile.typeReal':'Gerçek','profile.typeRealSub':'Gerçek banka hesaplarını bağla',
+    'profile.typeDemo':'Demo','profile.typeDemoSub':'Test için örnek veriler kullanır',
+    'profile.createProfile':'Profil oluştur','profile.duplicateName':'Bu isimde bir profil zaten mevcut',
+    'profile.picTitle':'Profil fotoğrafı','profile.chooseLibrary':'Kütüphaneden seç','profile.removePic':'Fotoğrafı kaldır',
+    'accounts.demoSection':'Demo hesapları','accounts.demoDesc':'Örnek veriler · salt okunur',
+    'accounts.yourSection':'Hesaplarınız','accounts.bankSection':'Banka hesapları','accounts.savingSection':'Tasarruf & yatırım',
+    'accounts.noBank':'Bağlı banka hesabı yok','accounts.noSaving':'Tasarruf hesabı eklenmedi',
+    'accounts.connectBank':'Banka bağla','accounts.addManual':'Manuel hesap ekle',
     'settings.darkMode':'Karanlık mod',
     'settings.darkModeOn':'Açık — açık moda geçmek için dokunun','settings.darkModeOff':'Kapalı — karanlık moda geçmek için dokunun',
     'settings.resetDemo':'Demo verilerini sıfırla','settings.resetDemoSub':'Tüm işlemleri ve ayarları geri yükle',
@@ -2126,7 +2311,7 @@ function ScreenHome() {
         return (
           <div key="period" className="m-card m-fade" style={{ padding:'16px 16px 14px', marginBottom:14, border:`1px solid ${M.line}` }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-              <div className="m-cap">{t('home.period')}</div>
+              <div className="m-h3">{t('home.period')}</div>
               <div style={{ display:'flex', alignItems:'center', gap:4 }}>
                 <button className="m-iconbtn m-tap" onClick={() => setPidx(i => Math.max(0, i-1))}
                   style={{ width:28, height:28, opacity:pidx===0?0.3:1 }}><I name="arrowL" size={14}/></button>
@@ -2284,7 +2469,7 @@ function ScreenHome() {
                       {i > 0 && <Divider inset={36}/>}
                       <div className="m-tap" onClick={() => nav.push('recurringDetail', { id: r.id })} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', cursor:'pointer' }}>
                         <div style={{ width:28, height:28, borderRadius:8, background:M.paper2, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                          <I name={r.icon} size={14} color={M.ink2}/>
+                          <IcoMDI name={r.icon} size={14} color={M.ink2}/>
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{r.name}</div>
@@ -2319,7 +2504,7 @@ function ScreenHome() {
               <I name="rocket" size={18} color={M.violet}/>
             </div>
             <div style={{ flex:1 }}>
-              <div style={{ fontSize:14, fontWeight:600 }}>Investments</div>
+              <div className="m-h3">{t('invest.cardTitle')}</div>
               <div className="m-num" style={{ fontSize:15, fontWeight:600, marginTop:2 }}>
                 {fmtEurInt(PORTFOLIO.total)}
                 <span style={{ fontSize:13, color:M.sage, marginLeft:8, fontFamily:M.fontUI, fontWeight:700, background:M.sageSoft, padding:'1px 7px', borderRadius:999 }}>+{PORTFOLIO.pnlPct.toFixed(1)}%</span>
@@ -2337,7 +2522,7 @@ function ScreenHome() {
               <I name="trending-up" size={18} color={M.sage}/>
             </div>
             <div style={{ flex:1 }}>
-              <div style={{ fontSize:14, fontWeight:600 }}>Insights</div>
+              <div className="m-h3">{t('tab.insights')}</div>
               <div style={{ fontSize:12, color:M.ink3, marginTop:2 }}>AI spending analysis</div>
             </div>
             <I name="caretR" size={14} color={M.ink4}/>
@@ -3885,7 +4070,7 @@ const DEFAULT_PROFILES = [
   { id:'p1', name:'Personal',  icon:'user',  active:true,  accountIds:['main','save','inv'], picture: null },
   { id:'p2', name:'Family',    icon:'house', active:false, accountIds:['main'],              picture: null },
   { id:'p3', name:'Freelance', icon:'bag',   active:false, accountIds:['main'],              picture: null },
-  { id:'p_demo', name:'Demo',  icon:'user',  active:false, accountIds:['main','save'],       picture: 'av7' },
+  { id:'p_demo', name:'Demo',  icon:'user',  active:false, accountIds:['main','save'],       picture: 'av7', isDemo: true },
 ];
 
 const STOCK_AVATARS = [
@@ -3925,24 +4110,45 @@ function ScreenProfile() {
   const nav = useNav();
   const { t } = useLang();
   const [editing, setEditing] = React.useState(false);
-  const [name, setName] = useLocalStorage('munni_profile_name', 'Demo van der Berg');
-  const [email] = useLocalStorage('munni_profile_email', 'demo@munni.app');
-  const [userPicture, setUserPicture] = useLocalStorage('munni_user_picture', null);
+  const [name, setName] = useLocalStorage('munni_profile_name', '');
+  const [email] = useLocalStorage('munni_profile_email', '');
+  const pictureKey = React.useMemo(() => {
+    const method = localStorage.getItem('munni_last_login_method') || '';
+    if (method === 'google') return 'munni_user_picture_google';
+    if (method === 'apple') return 'munni_user_picture_apple';
+    if (method === 'bank') return 'munni_user_picture_bank';
+    try {
+      const e = JSON.parse(localStorage.getItem('munni_profile_email') || '""');
+      if (e && !['google@munni.app','apple@munni.app','bank@munni.app',''].includes(e)) return `munni_user_picture_${e}`;
+    } catch {}
+    return 'munni_user_picture';
+  }, []);
+  const [userPicture, setUserPicture] = useLocalStorage(pictureKey, null);
   const { profiles } = useProfiles();
   const [connectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
   const [draft, setDraft] = React.useState({ name });
   const [showReset, setShowReset] = React.useState(false);
   const [showPicturePicker, setShowPicturePicker] = React.useState(false);
 
+  const handleUserFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => { setUserPicture(ev.target.result); setShowPicturePicker(false); };
+    reader.readAsDataURL(file);
+  };
+
   const { logout: logoutFn } = useAppCtx();
   const startEdit = () => { setDraft({ name }); setEditing(true); };
   const save = () => { setName(draft.name); setEditing(false); };
   const cancel = () => setEditing(false);
-  const initial = name.charAt(0).toUpperCase();
+  const initial = (name || '?').charAt(0).toUpperCase();
 
   const activeProfile = profiles.find(p => p.active) || profiles[0];
   const isDemo = activeProfile?.id === 'p_demo' || activeProfile?.isDemo;
   const connectedBanks = connectedAccounts.filter(a => a.type === 'checking').length;
+  const _lastMethod = localStorage.getItem('munni_last_login_method') || '';
+  const emailDisplay = isDemo ? 'demo@munni.app' : (email && !['google@munni.app','apple@munni.app','bank@munni.app',''].includes(email)) ? email : _lastMethod === 'google' ? t('login.signedInGoogle') : _lastMethod === 'apple' ? t('login.signedInApple') : (email || '');
 
   return (
     <div className="m-screen">
@@ -3956,7 +4162,7 @@ function ScreenProfile() {
       <div className="m-body-scroll">
         {/* Identity card */}
         <div className="m-card" style={{ padding: 18, marginBottom: 16, border: `1px solid ${M.line}`, display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button className="m-tap" onClick={() => setShowPicturePicker(true)} style={{ position:'relative', background:'none', border:'none', cursor:'pointer', padding:0, flexShrink:0 }}>
+          <button className="m-tap" onClick={() => !isDemo && setShowPicturePicker(true)} style={{ position:'relative', background:'none', border:'none', cursor: isDemo ? 'default' : 'pointer', padding:0, flexShrink:0 }}>
             {userPicture ? (
               userPicture.startsWith('av') ? (
                 (() => { const av = STOCK_AVATARS.find(a => a.id === userPicture); return av ? <div style={{ width:56, height:56, borderRadius:999, background:av.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:26 }}>{av.emoji}</div> : null; })()
@@ -3966,9 +4172,9 @@ function ScreenProfile() {
             ) : (
               <div style={{ width:56, height:56, borderRadius:999, background:`linear-gradient(135deg, ${M.sage} 0%, #3D5A42 100%)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:22, fontFamily:M.fontDisp }}>{initial}</div>
             )}
-            <div style={{ position:'absolute', bottom:0, right:0, width:20, height:20, borderRadius:'50%', background:M.sage, display:'flex', alignItems:'center', justifyContent:'center', border:'2px solid #fff' }}>
+            {!isDemo && <div style={{ position:'absolute', bottom:0, right:0, width:20, height:20, borderRadius:'50%', background:M.sage, display:'flex', alignItems:'center', justifyContent:'center', border:'2px solid #fff' }}>
               <I name="cam" size={10} color="#fff"/>
-            </div>
+            </div>}
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
             {editing && !isDemo ? (
@@ -3980,7 +4186,7 @@ function ScreenProfile() {
                 {isDemo && <span style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:999, background:M.ochreSoft, color:M.ochre, textTransform:'uppercase', letterSpacing:'0.05em' }}>Demo</span>}
               </div>
             )}
-            <div style={{ fontSize: 12, color: M.ink3 }}>{email}</div>
+            <div style={{ fontSize: 12, color: M.ink3 }}>{emailDisplay}</div>
             {isDemo && <div style={{ fontSize:11, color:M.ochre, marginTop:3 }}>Demo account · read-only profile</div>}
           </div>
           {!isDemo && (editing ? (
@@ -4070,7 +4276,7 @@ function ScreenProfile() {
       {showPicturePicker && (
         <Sheet onClose={() => setShowPicturePicker(false)}>
           <div style={{ padding:'0 16px 8px' }}>
-            <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>Profile picture</div>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>{t('profile.picTitle')}</div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:10, marginBottom:20 }}>
               {STOCK_AVATARS.map(av => (
                 <button key={av.id} className="m-tap" onClick={() => { setUserPicture(av.id); setShowPicturePicker(false); }}
@@ -4079,10 +4285,17 @@ function ScreenProfile() {
                 </button>
               ))}
             </div>
+            <label style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0', cursor:'pointer', borderBottom:`1px solid ${M.line2}`, marginBottom:12 }}>
+              <div style={{ width:40, height:40, borderRadius:10, background:M.paper2, border:`1px solid ${M.line}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <I name="cam" size={18} color={M.ink2}/>
+              </div>
+              <div style={{ fontSize:15, fontWeight:500 }}>{t('profile.chooseLibrary')}</div>
+              <input type="file" accept="image/*" onChange={handleUserFileChange} style={{ display:'none' }}/>
+            </label>
             {userPicture && (
               <button className="m-tap" onClick={() => { setUserPicture(null); setShowPicturePicker(false); }}
                 style={{ width:'100%', padding:'12px 0', background:M.paper2, color:M.ink3, border:`1px solid ${M.line}`, borderRadius:12, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
-                Remove picture
+                {t('profile.removePic')}
               </button>
             )}
           </div>
@@ -4100,31 +4313,40 @@ function ScreenProfiles() {
   const [showNewProfile, setShowNewProfile] = React.useState(false);
   const [newProfileName, setNewProfileName] = React.useState('');
   const [newProfileIsDemo, setNewProfileIsDemo] = React.useState(false);
+  const [newProfileError, setNewProfileError] = React.useState('');
+
+  const activeProfile = profiles.find(p => p.active) || profiles[0];
+  const isUserDemo = activeProfile?.id === 'p_demo' || activeProfile?.isDemo;
 
   const activateProfile = (id) => setProfiles(ps => ps.map(p => ({ ...p, active: p.id === id })));
 
   const createProfile = () => {
-    if (!newProfileName.trim()) return;
-    const DEMO_ACCOUNT_IDS = ['demo_main1', 'demo_main2'];
+    const trimmed = newProfileName.trim();
+    if (!trimmed) return;
+    if (profiles.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) {
+      setNewProfileError(t('profile.duplicateName')); return;
+    }
+    const randomAv = STOCK_AVATARS[Math.floor(Math.random() * STOCK_AVATARS.length)];
     const newP = {
       id: `p_${Date.now()}`,
-      name: newProfileName.trim(),
+      name: trimmed,
       icon: 'card',
       active: false,
-      accountIds: newProfileIsDemo ? DEMO_ACCOUNT_IDS : [],
-      picture: null,
+      accountIds: [],
+      picture: randomAv.id,
       isDemo: newProfileIsDemo,
     };
     setProfiles(ps => [...ps, newP]);
     setShowNewProfile(false);
     setNewProfileName('');
     setNewProfileIsDemo(false);
+    setNewProfileError('');
     nav.push('profileDetail', { id: newP.id });
   };
 
   const profileAccountSub = (p) => {
-    const ids = p.accountIds || [];
-    if (ids.length === 0) return 'No accounts';
+    const ids = (p.accountIds || []).filter(id => connectedAccounts.some(a => a.id === id));
+    if (ids.length === 0) return t('accounts.noBank').replace(' connected','');
     return `${ids.length} account${ids.length > 1 ? 's' : ''}`;
   };
 
@@ -4168,43 +4390,45 @@ function ScreenProfiles() {
         </div>
         <div style={{ borderRadius:12, overflow:'hidden', border:`1px solid ${M.line}`, marginBottom:16 }}>
           <div style={{ padding:'14px 16px', background:M.sageSoft }}>
-            <div style={{ fontSize:13, fontWeight:600, color:M.sage, marginBottom:4 }}>About Profiles</div>
-            <div style={{ fontSize:12, color:M.ink2, lineHeight:1.6 }}>
-              Profiles let you track separate finances in one app — perfect for personal vs. business, or managing finances for different household members. Each profile has its own accounts, budgets, goals, and financial data.
-            </div>
+            <div style={{ fontSize:13, fontWeight:600, color:M.sage, marginBottom:4 }}>{t('profiles.aboutTitle')}</div>
+            <div style={{ fontSize:12, color:M.ink2, lineHeight:1.6 }}>{t('profiles.aboutDesc')}</div>
           </div>
         </div>
       </div>
 
       {showNewProfile && (
-        <Sheet onClose={() => setShowNewProfile(false)}>
+        <Sheet onClose={() => { setShowNewProfile(false); setNewProfileName(''); setNewProfileIsDemo(false); setNewProfileError(''); }}>
           <div style={{ padding:'4px 16px 8px' }}>
-            <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>New profile</div>
-            <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Profile name</div>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>{t('profile.newProfile')}</div>
+            <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>{t('profile.profileName')}</div>
             <input
-              autoFocus
               value={newProfileName}
-              onChange={e => setNewProfileName(e.target.value)}
-              placeholder="e.g. Business, Partner, Side hustle…"
-              style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box', marginBottom:20 }}
+              onChange={e => { setNewProfileName(e.target.value); setNewProfileError(''); }}
+              onKeyDown={e => e.key === 'Enter' && createProfile()}
+              placeholder={t('profile.namePlaceholder')}
+              style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:`1px solid ${newProfileError ? M.clay : M.line}`, fontSize:14, fontFamily:M.fontUI, background:M.paper2, outline:'none', boxSizing:'border-box', marginBottom: newProfileError ? 6 : 20 }}
             />
-            <div style={{ fontSize:12, color:M.ink3, marginBottom:8 }}>Profile type</div>
+            {newProfileError && <div style={{ fontSize:12, color:M.clay, marginBottom:14 }}>{newProfileError}</div>}
+            <div style={{ fontSize:12, color:M.ink3, marginBottom:8 }}>{t('profile.profileType')}</div>
             <div style={{ display:'flex', gap:8, marginBottom:20 }}>
-              {[{v:false,l:'Real',sub:'Connect your actual bank accounts'},{v:true,l:'Demo',sub:'Uses sample data for testing'}].map(opt => (
-                <button key={String(opt.v)} className="m-tap" onClick={() => setNewProfileIsDemo(opt.v)}
-                  style={{ flex:1, padding:'12px 8px', borderRadius:12, border:`2px solid ${newProfileIsDemo===opt.v ? M.sage : M.line}`, background: newProfileIsDemo===opt.v ? M.sageSoft : M.paper2, textAlign:'center', cursor:'pointer', fontFamily:M.fontUI, boxSizing:'border-box' }}>
-                  <div style={{ fontSize:13, fontWeight:600, color:newProfileIsDemo===opt.v?M.sage:M.ink }}>{opt.l}</div>
-                  <div style={{ fontSize:10, color:M.ink3, marginTop:2 }}>{opt.sub}</div>
-                </button>
-              ))}
+              {[{v:false,lk:'profile.typeReal',sk:'profile.typeRealSub'},{v:true,lk:'profile.typeDemo',sk:'profile.typeDemoSub'}].map(opt => {
+                const disabled = opt.v === false && isUserDemo;
+                return (
+                  <button key={String(opt.v)} className="m-tap" onClick={() => !disabled && setNewProfileIsDemo(opt.v)}
+                    style={{ flex:1, padding:'12px 8px', borderRadius:12, border:`2px solid ${newProfileIsDemo===opt.v ? M.sage : M.line}`, background: disabled ? M.line2 : newProfileIsDemo===opt.v ? M.sageSoft : M.paper2, textAlign:'center', cursor: disabled ? 'not-allowed' : 'pointer', fontFamily:M.fontUI, boxSizing:'border-box', opacity: disabled ? 0.5 : 1 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:newProfileIsDemo===opt.v?M.sage:M.ink }}>{t(opt.lk)}</div>
+                    <div style={{ fontSize:10, color:M.ink3, marginTop:2 }}>{t(opt.sk)}</div>
+                  </button>
+                );
+              })}
             </div>
             <button onClick={createProfile}
               style={{ width:'100%', padding:'14px 0', background:newProfileName.trim() ? M.sage : M.line, color:newProfileName.trim() ? '#fff' : M.ink4, border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:newProfileName.trim()?'pointer':'default', fontFamily:M.fontUI, marginBottom:10 }}>
-              Create profile
+              {t('profile.createProfile')}
             </button>
-            <button onClick={() => setShowNewProfile(false)}
+            <button onClick={() => { setShowNewProfile(false); setNewProfileName(''); setNewProfileIsDemo(false); setNewProfileError(''); }}
               style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
-              Cancel
+              {t('action.cancel')}
             </button>
           </div>
         </Sheet>
@@ -4215,6 +4439,7 @@ function ScreenProfiles() {
 
 function ScreenProfileDetail({ params }) {
   const nav = useNav();
+  const { t } = useLang();
   const { profiles, setProfiles } = useProfiles();
   const [connectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
@@ -4298,7 +4523,7 @@ function ScreenProfileDetail({ params }) {
   return (
     <div className="m-screen">
       <StatusBar/>
-      <AppBar title="Profile"
+      <AppBar title={t('screen.profile')}
         leading={<button className="m-iconbtn m-tap" onClick={() => nav.pop()}><I name="arrowL" size={20}/></button>}
       />
       <div className="m-body-scroll">
@@ -4307,7 +4532,7 @@ function ScreenProfileDetail({ params }) {
           <ProfileAvatar profile={profile} size={72}/>
           <button className="m-tap" onClick={() => setShowPhotoSheet(true)}
             style={{ fontSize:13, fontWeight:600, color:M.sage, background:'transparent', border:'none', cursor:'pointer', fontFamily:M.fontUI, padding:'4px 12px' }}>
-            Change photo
+            {t('profile.changePhoto')}
           </button>
           <div style={{ width:'100%' }}>
             {editingName ? (
@@ -4322,56 +4547,51 @@ function ScreenProfileDetail({ params }) {
             ) : (
               <div className="m-tap" onClick={startEditName} style={{ textAlign:'center' }}>
                 <div style={{ fontSize:16, fontWeight:600, borderBottom:`1.5px dashed ${M.line2}`, display:'inline', paddingBottom:1 }}>{profile.name}</div>
-                <div style={{ fontSize:10, color:M.ink4, marginTop:4 }}>tap to rename</div>
+                <div style={{ fontSize:10, color:M.ink4, marginTop:4 }}>{t('profile.tapRename')}</div>
               </div>
             )}
             {isActive && (
-              <div style={{ fontSize:11, color:M.sage, fontWeight:600, marginTop:3, textAlign:'center' }}>Active profile</div>
+              <div style={{ fontSize:11, color:M.sage, fontWeight:600, marginTop:3, textAlign:'center' }}>{t('profile.active')}</div>
             )}
           </div>
         </div>
 
         {/* Main accounts */}
-        <div className="m-cap" style={{ marginBottom:4, paddingLeft:4 }}>Main accounts</div>
-        <div style={{ fontSize:11, color:M.ink3, marginBottom:8, paddingLeft:4 }}>Transactions will sync to this profile</div>
+        <div className="m-cap" style={{ marginBottom:4, paddingLeft:4 }}>{t('profile.mainAccounts')}</div>
+        <div style={{ fontSize:11, color:M.ink3, marginBottom:8, paddingLeft:4 }}>{t('profile.mainAccountsSub')}</div>
         <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
           {mainAccounts.length === 0 && (
-            <div style={{ padding:'16px 0', textAlign:'center', color:M.ink3, fontSize:13 }}>No checking accounts connected</div>
+            <div style={{ padding:'16px 0', textAlign:'center', color:M.ink3, fontSize:13 }}>{t('profile.noChecking')}</div>
           )}
           {mainAccounts.map((a, i, arr) => renderAccountRow(a, i, arr))}
         </div>
 
         {/* Saving & investment accounts */}
-        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>Saving &amp; investment accounts</div>
+        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('profile.savingAccounts')}</div>
         <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
           {savingAccounts.length === 0 && (
-            <div style={{ padding:'16px 0', textAlign:'center', color:M.ink3, fontSize:13 }}>No saving accounts connected</div>
+            <div style={{ padding:'16px 0', textAlign:'center', color:M.ink3, fontSize:13 }}>{t('profile.noSaving')}</div>
           )}
           {savingAccounts.map((a, i, arr) => renderAccountRow(a, i, arr))}
         </div>
 
-        <div className="m-tap m-card" onClick={() => nav.push('accountsAll')}
-          style={{ padding:'14px 16px', marginBottom:14, border:`1px solid ${M.line}`, display:'flex', alignItems:'center', gap:12 }}>
-          <div style={{ width:36, height:36, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-            <I name="plus" size={16} color={M.sage}/>
-          </div>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:14, fontWeight:600, color:M.sage }}>Connect a bank or savings account</div>
-            <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>Add checking or savings accounts to this profile</div>
-          </div>
-          <I name="caretR" size={14} color={M.ink4}/>
-        </div>
+        <button className="m-tap" onClick={() => nav.push('accountsAll')}
+          style={{ width:'100%', marginBottom:14, padding:'10px 14px', background:'transparent', border:`1px solid ${M.line}`, borderRadius:12, display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontFamily:M.fontUI }}>
+          <I name="card" size={14} color={M.ink3}/>
+          <div style={{ fontSize:13, color:M.ink3, fontWeight:500 }}>{t('profile.manageAccounts')}</div>
+          <I name="caretR" size={12} color={M.ink4} style={{ marginLeft:'auto' }}/>
+        </button>
 
         {/* Delete */}
         <button
           disabled={isOnly || isActive}
           onClick={() => setShowDeleteConfirm(true)}
           style={{ width:'100%', padding:'14px 0', background: (isOnly||isActive) ? M.line : M.claySoft, color:(isOnly||isActive) ? M.ink4 : M.clay, border:'none', borderRadius:12, fontSize:15, fontWeight:600, cursor:(isOnly||isActive)?'not-allowed':'pointer', fontFamily:M.fontUI, marginBottom:8 }}>
-          Delete profile
+          {t('profile.deleteProfile')}
         </button>
         {(isOnly || isActive) && (
           <div style={{ textAlign:'center', fontSize:12, color:M.ink4 }}>
-            {isActive ? 'Cannot delete the active profile — switch first' : 'Cannot delete the only profile'}
+            {isActive ? t('profile.cannotDeleteActive') : t('profile.cannotDeleteOnly')}
           </div>
         )}
         <div style={{ height:16 }}/>
@@ -4380,7 +4600,7 @@ function ScreenProfileDetail({ params }) {
       {showPhotoSheet && (
         <Sheet onClose={() => setShowPhotoSheet(false)}>
           <div style={{ padding:'4px 16px 8px' }}>
-            <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>Choose photo</div>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>{t('profile.choosePhoto')}</div>
             <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:20 }}>
               {STOCK_AVATARS.map(av => (
                 <button key={av.id} className="m-tap" onClick={() => setPicture(av.id)}
@@ -4393,7 +4613,7 @@ function ScreenProfileDetail({ params }) {
               <div style={{ width:40, height:40, borderRadius:10, background:M.paper2, border:`1px solid ${M.line}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                 <I name="box" size={18} color={M.ink2}/>
               </div>
-              <div style={{ fontSize:15, fontWeight:500 }}>Choose from library</div>
+              <div style={{ fontSize:15, fontWeight:500 }}>{t('profile.chooseLibrary')}</div>
               <input type="file" accept="image/*" onChange={handleFileChange} style={{ display:'none' }}/>
             </label>
           </div>
@@ -4403,17 +4623,17 @@ function ScreenProfileDetail({ params }) {
       {showDeleteConfirm && (
         <Sheet onClose={() => setShowDeleteConfirm(false)}>
           <div style={{ padding:'4px 16px 8px' }}>
-            <div style={{ fontSize:17, fontWeight:700, marginBottom:8 }}>Delete "{profile.name}"?</div>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:8 }}>{t('profile.deleteConfirmTitle')}</div>
             <div style={{ fontSize:14, color:M.ink3, lineHeight:1.5, marginBottom:20 }}>
-              This profile will be permanently removed. Transactions will remain.
+              {t('profile.deleteConfirmDesc')}
             </div>
             <button onClick={deleteProfile}
               style={{ width:'100%', padding:'14px 0', background:M.clay, color:'#fff', border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, marginBottom:10 }}>
-              Delete profile
+              {t('profile.deleteProfile')}
             </button>
             <button onClick={() => setShowDeleteConfirm(false)}
               style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
-              Cancel
+              {t('action.cancel')}
             </button>
           </div>
         </Sheet>
@@ -4462,9 +4682,9 @@ function ScreenLanguagePicker({ fromOnboarding = false, onBack }) {
   const [search, setSearch] = React.useState('');
 
   const mainLangs = [
-    { code:'en', name:'English', native:'English', flag:'🇬🇧' },
-    { code:'nl', name:'Dutch', native:'Nederlands', flag:'🇳🇱' },
-    { code:'tr', name:'Turkish', native:'Türkçe', flag:'🇹🇷' },
+    { code:'en', name:'English', native:'English', twemoji:'1f1ec-1f1e7' },
+    { code:'nl', name:'Dutch', native:'Nederlands', twemoji:'1f1f3-1f1f1' },
+    { code:'tr', name:'Turkish', native:'Türkçe', twemoji:'1f1f9-1f1f7' },
   ];
 
   const filteredOther = OTHER_LANGUAGES.filter(l =>
@@ -4495,14 +4715,14 @@ function ScreenLanguagePicker({ fromOnboarding = false, onBack }) {
         </div>
 
         {/* Available languages */}
-        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>Available now</div>
+        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('lang.availableNow')}</div>
         <div className="m-card" style={{ padding:'4px 16px', marginBottom:20, border:`1px solid ${M.line}` }}>
           {mainLangs.map((l, i) => (
             <React.Fragment key={l.code}>
               {i > 0 && <Divider inset={52}/>}
               <div className="m-tap" onClick={() => selectLang(l.code)}
                 style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 0' }}>
-                <div style={{ fontSize:28, width:40, textAlign:'center', flexShrink:0 }}>{l.flag}</div>
+                <img src={`https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${l.twemoji}.svg`} width={36} height={36} style={{ borderRadius:3, flexShrink:0 }} alt={l.name}/>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:15, fontWeight:600 }}>{l.native}</div>
                   <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{l.name}</div>
@@ -5405,7 +5625,7 @@ function ScreenNotifications() {
               <div style={{ padding:'8px 12px', background:M.ochreSoft, fontSize:12, color:M.ochre, fontWeight:500 }}>
                 {newCount} transaction{newCount > 1 ? 's' : ''} synced
               </div>
-              <button className="m-tap" onClick={() => nav.push('reviewSwipe')} style={{
+              <button className="m-tap" onClick={() => { setNewCount(0); nav.push('reviewSwipe'); }} style={{
                 width:'100%', padding:'9px 12px', background:'#fff', border:'none', borderTop:`1px solid ${M.line2}`,
                 display:'flex', alignItems:'center', gap:8, fontSize:12, fontWeight:600, color:M.ochre, cursor:'pointer',
               }}>
@@ -6207,6 +6427,10 @@ function ScreenAccountsAll() {
   const savingAccounts = connectedAccounts.filter(a => a.type === 'savings' || a.type === 'invest');
   const filteredBanks = DUTCH_BANKS.filter(b => !bankSearch || b.name.toLowerCase().includes(bankSearch.toLowerCase()));
   const activeProfile = profiles.find(p => p.active) || profiles[0];
+  const isDemoProfile = activeProfile?.id === 'p_demo' || activeProfile?.isDemo;
+  const demoAccounts = connectedAccounts.filter(a => DEMO_ACCOUNT_IDS.includes(a.id));
+  const realBankAccounts = bankAccounts.filter(a => !DEMO_ACCOUNT_IDS.includes(a.id));
+  const realSavingAccounts = savingAccounts.filter(a => !DEMO_ACCOUNT_IDS.includes(a.id));
 
   const startBankConnect = (bank) => {
     setPsd2Bank(bank);
@@ -6386,6 +6610,28 @@ function ScreenAccountsAll() {
     );
   }
 
+  const renderAccountRow = (a, opts = {}) => (
+    <div className={opts.readonly ? '' : 'm-tap'} onClick={opts.readonly ? undefined : opts.onPress}
+      style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+      <div style={{ width:38, height:38, borderRadius:10, background: a.color || M.ochreSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+        <I name={a.type==='invest'?'rocket':a.type==='savings'?'piggy':'card'} size={18} color={a.isDemo ? M.ink3 : '#fff'}/>
+      </div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+          <div style={{ fontSize:14, fontWeight:600 }}>{a.name}</div>
+          {a.isDemo && <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.ochreSoft, color:M.ochre, textTransform:'uppercase' }}>Demo</span>}
+          {a.bankId && !a.isDemo && <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.sageSoft, color:M.sage, textTransform:'uppercase' }}>Bank</span>}
+          {a.manual && <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.ochreSoft, color:M.ochre, textTransform:'uppercase' }}>Manual</span>}
+        </div>
+        <div style={{ fontSize:11, color:M.ink3, marginTop:2, fontFamily:M.fontMono }}>{a.iban}</div>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <div className="m-num" style={{ fontSize:15, fontWeight:600 }}>{fmtEur(a.balance || 0)}</div>
+        {!opts.readonly && <I name="caretR" size={14} color={M.ink4}/>}
+      </div>
+    </div>
+  );
+
   return (
     <div className="m-screen">
       <StatusBar/>
@@ -6394,92 +6640,81 @@ function ScreenAccountsAll() {
         trailing={null}
       />
       <div className="m-body-scroll">
-        {/* Bank accounts section */}
-        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>Bank accounts</div>
-        <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
-          {bankAccounts.map((a, i) => (
-            <React.Fragment key={a.id}>
-              {i > 0 && <Divider inset={50}/>}
-              <div className="m-tap" onClick={() => setShowDeleteConfirm(a)}
-                style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
-                <div style={{ width:38, height:38, borderRadius:10, background:a.color, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <I name="card" size={18} color="#fff"/>
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                    <div style={{ fontSize:14, fontWeight:600 }}>{a.name}</div>
-                    <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.sageSoft, color:M.sage, textTransform:'uppercase' }}>Bank</span>
-                  </div>
-                  <div style={{ fontSize:11, color:M.ink3, marginTop:2, fontFamily:M.fontMono }}>{a.iban}</div>
-                </div>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <div className="m-num" style={{ fontSize:15, fontWeight:600 }}>{fmtEur(a.balance)}</div>
-                  <I name="caretR" size={14} color={M.ink4}/>
-                </div>
-              </div>
-            </React.Fragment>
-          ))}
-          <Divider inset={0}/>
-          <div className="m-tap" onClick={() => setShowAdd(true)} style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0', color:M.sage }}>
-            <div style={{ width:38, height:38, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-              <I name="plus" size={16} color={M.sage}/>
+
+        {isDemoProfile ? (
+          /* ── Demo profile: show demo accounts as read-only ── */
+          <>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8, paddingLeft:4 }}>
+              <div className="m-cap">{t('accounts.demoSection')}</div>
+              <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.ochreSoft, color:M.ochre, textTransform:'uppercase' }}>read-only</span>
             </div>
-            <div style={{ flex:1, fontSize:14, fontWeight:600 }}>Connect a bank</div>
-            <I name="caretR" size={14} color={M.ink4}/>
-          </div>
-        </div>
-
-        <div style={{ padding:'12px 14px', borderRadius:12, background:M.sageSoft, display:'flex', gap:10, alignItems:'flex-start', marginBottom:14 }}>
-          <I name="lock" size={16} color={M.sage}/>
-          <div style={{ fontSize:12, color:M.ink2, lineHeight:1.45 }}>
-            Bank accounts connect via PSD2 Open Banking. munni has read-only access — we can never move money.
-          </div>
-        </div>
-
-        {/* Saving accounts section */}
-        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>Saving accounts</div>
-        <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
-          {savingAccounts.map((a, i) => (
-            <React.Fragment key={a.id}>
-              {i > 0 && <Divider inset={50}/>}
-              <div className="m-tap" onClick={() => { setShowRenameSheet(a); setRenameDraft(a.name); }}
-                style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
-                <div style={{ width:38, height:38, borderRadius:10, background: a.color || M.ochreSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <I name={a.type==='invest'?'rocket':'piggy'} size={18} color={a.manual ? M.ochre : '#fff'}/>
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                    <div style={{ fontSize:14, fontWeight:600 }}>{a.name}</div>
-                    {a.manual
-                      ? <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.ochreSoft, color:M.ochre, textTransform:'uppercase' }}>Manual</span>
-                      : <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:999, background:M.sageSoft, color:M.sage, textTransform:'uppercase' }}>Bank</span>
-                    }
-                  </div>
-                  <div style={{ fontSize:11, color:M.ink3, marginTop:2, fontFamily:M.fontMono }}>{a.iban}</div>
-                </div>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <div className="m-num" style={{ fontSize:15, fontWeight:600 }}>{fmtEur(a.balance || 0)}</div>
-                  <I name="caretR" size={14} color={M.ink4}/>
-                </div>
-              </div>
-            </React.Fragment>
-          ))}
-          <Divider inset={0}/>
-          <div className="m-tap" onClick={() => setShowCreateSaving(true)} style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0', color:M.sage }}>
-            <div style={{ width:38, height:38, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-              <I name="plus" size={16} color={M.sage}/>
+            <div className="m-card" style={{ padding:'4px 16px', marginBottom:12, border:`1px solid ${M.line}` }}>
+              {demoAccounts.map((a, i) => (
+                <React.Fragment key={a.id}>
+                  {i > 0 && <Divider inset={50}/>}
+                  {renderAccountRow(a, { readonly: true })}
+                </React.Fragment>
+              ))}
             </div>
-            <div style={{ flex:1, fontSize:14, fontWeight:600 }}>Create saving account</div>
-            <I name="caretR" size={14} color={M.ink4}/>
-          </div>
-        </div>
+            <div style={{ padding:'12px 14px', borderRadius:12, background:M.ochreSoft, display:'flex', gap:10, alignItems:'flex-start', marginBottom:8 }}>
+              <I name="help" size={16} color={M.ochre}/>
+              <div style={{ fontSize:12, color:M.ink2, lineHeight:1.5 }}>{t('accounts.demoDesc')}</div>
+            </div>
+          </>
+        ) : (
+          /* ── Real profile: show real accounts only ── */
+          <>
+            <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('accounts.bankSection')}</div>
+            <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
+              {realBankAccounts.length === 0 && (
+                <div style={{ padding:'16px 0', textAlign:'center', color:M.ink3, fontSize:13 }}>{t('accounts.noBank')}</div>
+              )}
+              {realBankAccounts.map((a, i) => (
+                <React.Fragment key={a.id}>
+                  {i > 0 && <Divider inset={50}/>}
+                  {renderAccountRow(a, { onPress: () => setShowDeleteConfirm(a) })}
+                </React.Fragment>
+              ))}
+              <Divider inset={0}/>
+              <div className="m-tap" onClick={() => setShowAdd(true)} style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0', color:M.sage }}>
+                <div style={{ width:38, height:38, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <I name="plus" size={16} color={M.sage}/>
+                </div>
+                <div style={{ flex:1, fontSize:14, fontWeight:600 }}>{t('accounts.connectBank')}</div>
+                <I name="caretR" size={14} color={M.ink4}/>
+              </div>
+            </div>
+            <div style={{ padding:'12px 14px', borderRadius:12, background:M.sageSoft, display:'flex', gap:10, alignItems:'flex-start', marginBottom:14 }}>
+              <I name="lock" size={16} color={M.sage}/>
+              <div style={{ fontSize:12, color:M.ink2, lineHeight:1.45 }}>Bank accounts connect via PSD2 Open Banking. munni has read-only access — we can never move money.</div>
+            </div>
 
-        <div style={{ padding:'12px 14px', borderRadius:12, background:M.ochreSoft, display:'flex', gap:10, alignItems:'flex-start', marginBottom:8 }}>
-          <I name="help" size={16} color={M.ochre}/>
-          <div style={{ fontSize:12, color:M.ink2, lineHeight:1.5 }}>
-            Banks often don't expose saving accounts via Open Banking (PSD2). Create saving accounts manually here to track deposits and withdrawals yourself.
-          </div>
-        </div>
+            <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('accounts.savingSection')}</div>
+            <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
+              {realSavingAccounts.length === 0 && (
+                <div style={{ padding:'16px 0', textAlign:'center', color:M.ink3, fontSize:13 }}>{t('accounts.noSaving')}</div>
+              )}
+              {realSavingAccounts.map((a, i) => (
+                <React.Fragment key={a.id}>
+                  {i > 0 && <Divider inset={50}/>}
+                  {renderAccountRow(a, { onPress: () => { setShowRenameSheet(a); setRenameDraft(a.name); } })}
+                </React.Fragment>
+              ))}
+              <Divider inset={0}/>
+              <div className="m-tap" onClick={() => setShowCreateSaving(true)} style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0', color:M.sage }}>
+                <div style={{ width:38, height:38, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <I name="plus" size={16} color={M.sage}/>
+                </div>
+                <div style={{ flex:1, fontSize:14, fontWeight:600 }}>{t('accounts.addManual')}</div>
+                <I name="caretR" size={14} color={M.ink4}/>
+              </div>
+            </div>
+            <div style={{ padding:'12px 14px', borderRadius:12, background:M.ochreSoft, display:'flex', gap:10, alignItems:'flex-start', marginBottom:8 }}>
+              <I name="help" size={16} color={M.ochre}/>
+              <div style={{ fontSize:12, color:M.ink2, lineHeight:1.5 }}>Banks often don't expose saving accounts via Open Banking (PSD2). Create saving accounts manually here to track deposits and withdrawals yourself.</div>
+            </div>
+          </>
+        )}
         <div style={{ height:8 }}/>
       </div>
 
@@ -10260,38 +10495,111 @@ function Router() {
 }
 
 function ScreenTerms({ onBack, showPrivacy = false }) {
+  const { lang } = useLang();
+
+  React.useEffect(() => {
+    window.history.pushState({ munniScreen: showPrivacy ? 'privacy' : 'terms' }, '');
+    const handlePop = () => onBack();
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
+  }, []);
+
+  const CONTENT = {
+    privacy: {
+      en: {
+        title: 'Privacy Policy', updated: 'Last updated: January 2026',
+        sections: [
+          ['Data we collect', 'munni collects only the data necessary to provide financial tracking services: bank transaction data via PSD2 Open Banking (read-only), account balances, and user preferences. We never collect passwords or payment card numbers.'],
+          ['How we use your data', 'Your financial data is used solely to provide the munni service. We do not sell, rent, or share your personal data with third parties for marketing purposes.'],
+          ['Data storage', 'Data is stored securely using end-to-end encryption. Bank credentials are never stored on our servers — they are transmitted directly to your bank via PSD2.'],
+          ['Your rights', 'You have the right to access, correct, or delete your data at any time. Contact privacy@munni.app to exercise these rights.'],
+          ['Cookies', 'We use essential cookies only for authentication and session management. We do not use tracking or advertising cookies.'],
+          ['Contact', 'For privacy questions: privacy@munni.app'],
+        ],
+      },
+      nl: {
+        title: 'Privacybeleid', updated: 'Laatst bijgewerkt: januari 2026',
+        sections: [
+          ['Gegevens die we verzamelen', 'munni verzamelt alleen de gegevens die nodig zijn voor financiële trackingdiensten: banktransactiegegevens via PSD2 Open Banking (alleen-lezen), rekeningbalansen en gebruikersvoorkeuren. We verzamelen nooit wachtwoorden of betaalkaartgegevens.'],
+          ['Hoe we uw gegevens gebruiken', 'Uw financiële gegevens worden uitsluitend gebruikt voor het leveren van de munni-service. We verkopen, verhuren of delen uw persoonlijke gegevens niet met derden voor marketingdoeleinden.'],
+          ['Gegevensopslag', 'Gegevens worden veilig opgeslagen met end-to-end-encryptie. Bankreferenties worden nooit op onze servers opgeslagen — ze worden via PSD2 rechtstreeks naar uw bank verzonden.'],
+          ['Uw rechten', 'U heeft het recht om uw gegevens op elk moment in te zien, te corrigeren of te verwijderen. Neem contact op met privacy@munni.app om deze rechten uit te oefenen.'],
+          ['Cookies', 'We gebruiken alleen essentiële cookies voor verificatie en sessiebeheer. We gebruiken geen tracking- of advertentiecookies.'],
+          ['Contact', 'Voor privacyvragen: privacy@munni.app'],
+        ],
+      },
+      tr: {
+        title: 'Gizlilik Politikası', updated: 'Son güncelleme: Ocak 2026',
+        sections: [
+          ['Topladığımız veriler', "munni, finansal izleme hizmetleri sunmak için yalnızca gerekli verileri toplar: PSD2 Açık Bankacılık aracılığıyla banka işlem verileri (salt okunur), hesap bakiyeleri ve kullanıcı tercihleri. Hiçbir zaman şifre veya ödeme kartı numarası toplamayız."],
+          ['Verilerinizi nasıl kullanıyoruz', 'Finansal verileriniz yalnızca munni hizmetini sağlamak için kullanılır. Kişisel verilerinizi pazarlama amacıyla üçüncü taraflara satmaz, kiralamaz veya paylaşmayız.'],
+          ['Veri depolama', 'Veriler uçtan uca şifreleme ile güvenli bir şekilde depolanır. Banka kimlik bilgileri sunucularımızda hiçbir zaman saklanmaz — PSD2 aracılığıyla doğrudan bankanıza iletilir.'],
+          ['Haklarınız', 'Verilerinize erişme, düzeltme veya silme hakkına sahipsiniz. Bu hakları kullanmak için privacy@munni.app ile iletişime geçin.'],
+          ['Çerezler', 'Yalnızca kimlik doğrulama ve oturum yönetimi için temel çerezler kullanıyoruz. İzleme veya reklam çerezleri kullanmıyoruz.'],
+          ['İletişim', 'Gizlilik soruları için: privacy@munni.app'],
+        ],
+      },
+    },
+    terms: {
+      en: {
+        title: 'Terms of Service', updated: 'Last updated: January 2026',
+        sections: [
+          ['Acceptance', 'By using munni, you agree to these Terms of Service. If you do not agree, please do not use the service.'],
+          ['Service description', 'munni is a personal finance management application that connects to your bank accounts via PSD2 Open Banking to provide read-only transaction tracking, budgeting, and financial insights.'],
+          ['Read-only access', 'munni has read-only access to your bank accounts. We can never initiate payments, transfers, or any financial transactions on your behalf.'],
+          ['User responsibilities', 'You are responsible for maintaining the security of your account credentials and for all activities that occur under your account.'],
+          ['Data accuracy', 'While we strive to provide accurate financial data, munni is not liable for any errors in data provided by third-party banking institutions.'],
+          ['Limitation of liability', 'munni is provided "as is" and we make no warranties regarding the accuracy or completeness of the service.'],
+          ['Changes to terms', 'We may update these terms from time to time. Continued use of munni after changes constitutes acceptance of the new terms.'],
+          ['Contact', 'For questions: legal@munni.app'],
+        ],
+      },
+      nl: {
+        title: 'Gebruiksvoorwaarden', updated: 'Laatst bijgewerkt: januari 2026',
+        sections: [
+          ['Acceptatie', 'Door munni te gebruiken, gaat u akkoord met deze Gebruiksvoorwaarden. Als u niet akkoord gaat, gebruik de service dan niet.'],
+          ['Servicebeschrijving', 'munni is een persoonlijke financiën-applicatie die via PSD2 Open Banking verbinding maakt met uw bankrekeningen voor alleen-lezen transactietracking, budgettering en financiële inzichten.'],
+          ['Alleen-lezen toegang', 'munni heeft alleen-lezen toegang tot uw bankrekeningen. Wij kunnen nooit betalingen, overboekingen of andere financiële transacties namens u initiëren.'],
+          ['Gebruikersverantwoordelijkheden', 'U bent verantwoordelijk voor de beveiliging van uw accountgegevens en voor alle activiteiten die plaatsvinden onder uw account.'],
+          ['Nauwkeurigheid van gegevens', 'Hoewel we streven naar nauwkeurige financiële gegevens, is munni niet aansprakelijk voor fouten in gegevens van derde bancaire instellingen.'],
+          ['Beperking van aansprakelijkheid', 'munni wordt geleverd zoals het is en wij geven geen garanties met betrekking tot de nauwkeurigheid of volledigheid van de service.'],
+          ['Wijzigingen in de voorwaarden', 'We kunnen deze voorwaarden van tijd tot tijd bijwerken. Voortgezet gebruik van munni na wijzigingen houdt acceptatie van de nieuwe voorwaarden in.'],
+          ['Contact', 'Voor vragen: legal@munni.app'],
+        ],
+      },
+      tr: {
+        title: 'Kullanım Şartları', updated: 'Son güncelleme: Ocak 2026',
+        sections: [
+          ['Kabul', "munni'yi kullanarak bu Kullanım Şartlarını kabul etmiş olursunuz. Kabul etmiyorsanız, lütfen hizmeti kullanmayın."],
+          ['Hizmet açıklaması', "munni, salt okunur işlem takibi, bütçeleme ve finansal içgörüler sağlamak için PSD2 Açık Bankacılık aracılığıyla banka hesaplarınıza bağlanan kişisel bir finans yönetimi uygulamasıdır."],
+          ['Salt okunur erişim', "munni, banka hesaplarınıza salt okunur erişime sahiptir. Adınıza hiçbir zaman ödeme, transfer veya finansal işlem başlatamayız."],
+          ['Kullanıcı sorumlulukları', 'Hesap kimlik bilgilerinizin güvenliğinden ve hesabınız altında gerçekleşen tüm faaliyetlerden siz sorumlusunuz.'],
+          ['Veri doğruluğu', 'Doğru finansal veriler sağlamak için çaba göstersek de, munni üçüncü taraf bankacılık kurumlarının sağladığı verilerdeki hatalardan sorumlu değildir.'],
+          ['Sorumluluk sınırlaması', 'munni olduğu gibi sunulmaktadır ve hizmetin doğruluğu ya da eksiksizliği konusunda herhangi bir garanti vermeyiz.'],
+          ['Şartlarda değişiklikler', "Bu şartları zaman zaman güncelleyebiliriz. Değişikliklerden sonra munni'yi kullanmaya devam etmek, yeni şartların kabulü anlamına gelir."],
+          ['İletişim', 'Sorular için: legal@munni.app'],
+        ],
+      },
+    },
+  };
+
+  const key = showPrivacy ? 'privacy' : 'terms';
+  const data = CONTENT[key][lang] || CONTENT[key].en;
+
   return (
     <div className="m-screen">
       <StatusBar/>
-      <AppBar title={showPrivacy ? 'Privacy Policy' : 'Terms of Service'}
+      <AppBar title={data.title}
         leading={<button className="m-iconbtn m-tap" onClick={onBack}><I name="arrowL" size={20}/></button>}
       />
       <div className="m-body-scroll" style={{ fontSize:13, color:M.ink2, lineHeight:1.7 }}>
-        {showPrivacy ? (
-          <div>
-            <div className="m-h3" style={{ marginBottom:8 }}>Privacy Policy</div>
-            <div style={{ fontSize:11, color:M.ink3, marginBottom:16 }}>Last updated: January 2026</div>
-            <p><strong>1. Data we collect</strong><br/>munni collects only the data necessary to provide financial tracking services: bank transaction data via PSD2 Open Banking (read-only), account balances, and user preferences. We never collect passwords or payment card numbers.</p>
-            <p><strong>2. How we use your data</strong><br/>Your financial data is used solely to provide the munni service. We do not sell, rent, or share your personal data with third parties for marketing purposes.</p>
-            <p><strong>3. Data storage</strong><br/>Data is stored securely using end-to-end encryption. Bank credentials are never stored on our servers — they are transmitted directly to your bank via PSD2.</p>
-            <p><strong>4. Your rights</strong><br/>You have the right to access, correct, or delete your data at any time. Contact privacy@munni.app to exercise these rights.</p>
-            <p><strong>5. Cookies</strong><br/>We use essential cookies only for authentication and session management. We do not use tracking or advertising cookies.</p>
-            <p><strong>6. Contact</strong><br/>For privacy questions: privacy@munni.app</p>
-          </div>
-        ) : (
-          <div>
-            <div className="m-h3" style={{ marginBottom:8 }}>Terms of Service</div>
-            <div style={{ fontSize:11, color:M.ink3, marginBottom:16 }}>Last updated: January 2026</div>
-            <p><strong>1. Acceptance</strong><br/>By using munni, you agree to these Terms of Service. If you do not agree, please do not use the service.</p>
-            <p><strong>2. Service description</strong><br/>munni is a personal finance management application that connects to your bank accounts via PSD2 Open Banking to provide read-only transaction tracking, budgeting, and financial insights.</p>
-            <p><strong>3. Read-only access</strong><br/>munni has read-only access to your bank accounts. We can never initiate payments, transfers, or any financial transactions on your behalf.</p>
-            <p><strong>4. User responsibilities</strong><br/>You are responsible for maintaining the security of your account credentials and for all activities that occur under your account.</p>
-            <p><strong>5. Data accuracy</strong><br/>While we strive to provide accurate financial data, munni is not liable for any errors in data provided by third-party banking institutions.</p>
-            <p><strong>6. Limitation of liability</strong><br/>munni is provided "as is" and we make no warranties regarding the accuracy or completeness of the service.</p>
-            <p><strong>7. Changes to terms</strong><br/>We may update these terms from time to time. Continued use of munni after changes constitutes acceptance of the new terms.</p>
-            <p><strong>8. Contact</strong><br/>For questions: legal@munni.app</p>
-          </div>
-        )}
+        <div>
+          <div className="m-h3" style={{ marginBottom:8 }}>{data.title}</div>
+          <div style={{ fontSize:11, color:M.ink3, marginBottom:16 }}>{data.updated}</div>
+          {data.sections.map(([heading, body], i) => (
+            <p key={i}><strong>{i + 1}. {heading}</strong><br/>{body}</p>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -10303,7 +10611,12 @@ function ScreenLoginGate({ onLogin }) {
   //       'signup-bank'|'terms'|'privacy'|'language'
   const [mode, setMode] = React.useState('login');
   const { t } = useLang();
-  const [emailInput, setEmailInput] = React.useState('custom@munni.app');
+  const [emailInput, setEmailInput] = React.useState(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('munni_profile_email') || '""');
+      return (v && !['google@munni.app','apple@munni.app','bank@munni.app'].includes(v)) ? v : '';
+    } catch { return ''; }
+  });
   const [signupEmailInput, setSignupEmailInput] = React.useState('');
   const [signupName, setSignupName] = React.useState('');
   const [verifyDigits, setVerifyDigits] = React.useState(['','','','','','']);
@@ -10311,6 +10624,7 @@ function ScreenLoginGate({ onLogin }) {
   const [loadingMethod, setLoadingMethod] = React.useState(null);
   const [loginError, setLoginError] = React.useState(null);
   const [signupError, setSignupError] = React.useState(null);
+  const [noAccountMethod, setNoAccountMethod] = React.useState(null);
 
   const hasOpenedBefore = localStorage.getItem('munni_opened_before') === 'true';
   const getSignupMethods = () => { try { return JSON.parse(localStorage.getItem('munni_signup_methods') || '[]'); } catch { return []; } };
@@ -10319,9 +10633,10 @@ function ScreenLoginGate({ onLogin }) {
   const doLogin = (method, email, displayName, activateDemo = false) => {
     const methods = [...new Set([...getSignupMethods(), method])];
     localStorage.setItem('munni_signup_methods', JSON.stringify(methods));
+    localStorage.setItem('munni_last_login_method', method);
     localStorage.setItem('munni_opened_before', 'true');
-    if (email) localStorage.setItem('munni_profile_email', email);
-    if (displayName) localStorage.setItem('munni_profile_name', displayName);
+    localStorage.setItem('munni_profile_email', JSON.stringify(email || ''));
+    if (displayName) localStorage.setItem('munni_profile_name', JSON.stringify(displayName));
     const profiles = JSON.parse(localStorage.getItem('munni_profiles') || JSON.stringify(DEFAULT_PROFILES));
     const targetId = activateDemo ? 'p_demo' : 'p1';
     const updated = profiles.map(p => ({ ...p, active: p.id === targetId }));
@@ -10337,11 +10652,11 @@ function ScreenLoginGate({ onLogin }) {
       setLoadingMethod(null);
       const methods = getSignupMethods();
       if (isSignup) {
-        if (methods.includes('google')) { setSignupError('A Google account is already registered. Sign in instead.'); return; }
-        doLogin('google', 'google@munni.app', 'Google User');
+        if (methods.includes('google')) { setSignupError(t('login.errGoogleExists')); return; }
+        doLogin('google', 'google@munni.app', 'Google van der Berg');
       } else {
-        if (!methods.includes('google')) { setLoginError('No account found for this Google account. Continue to sign up?'); return; }
-        doLogin('google', 'google@munni.app', 'Google User');
+        if (!methods.includes('google')) { setNoAccountMethod('google'); setMode('no-account'); return; }
+        doLogin('google', '', null);
       }
     }, 1400);
   };
@@ -10354,11 +10669,11 @@ function ScreenLoginGate({ onLogin }) {
       setLoadingMethod(null);
       const methods = getSignupMethods();
       if (isSignup) {
-        if (methods.includes('apple')) { setSignupError('An Apple account is already registered. Sign in instead.'); return; }
-        doLogin('apple', 'apple@munni.app', 'Apple User');
+        if (methods.includes('apple')) { setSignupError(t('login.errAppleExists')); return; }
+        doLogin('apple', 'apple@munni.app', 'Apple van der Berg');
       } else {
-        if (!methods.includes('apple')) { setLoginError('No account found for this Apple ID. Continue to sign up?'); return; }
-        doLogin('apple', 'apple@munni.app', 'Apple User');
+        if (!methods.includes('apple')) { setNoAccountMethod('apple'); setMode('no-account'); return; }
+        doLogin('apple', '', null);
       }
     }, 1400);
   };
@@ -10369,7 +10684,7 @@ function ScreenLoginGate({ onLogin }) {
     const methods = getSignupMethods();
     const emails = getSignupEmails();
     if (!methods.includes('email') || !emails.includes(emailInput.toLowerCase().trim())) {
-      setLoginError('No account found for this email. Did you mean to create an account?');
+      setLoginError(t('login.emailNotFound'));
       return;
     }
     setMode('email-verify');
@@ -10377,49 +10692,50 @@ function ScreenLoginGate({ onLogin }) {
     setAutoFilling(false);
     setTimeout(() => {
       setAutoFilling(true);
-      const code = '4', digits = ['4','2','7','1','8','3'];
-      let i = 0;
-      const fill = () => {
-        if (i >= 6) {
+      const digits = ['4','2','7','1','8','3'];
+      const fill = (idx) => {
+        if (idx >= 6) {
           setVerifyDigits([...digits]);
           setTimeout(() => doLogin('email', emailInput.trim().toLowerCase(), null), 800);
           return;
         }
-        setVerifyDigits(prev => { const n=[...prev]; n[i]=digits[i]; return n; });
-        i++; setTimeout(fill, 250);
+        setVerifyDigits(prev => { const n=[...prev]; n[idx]=digits[idx]; return n; });
+        setTimeout(() => fill(idx + 1), 100);
       };
-      setTimeout(fill, 1200);
+      setTimeout(() => fill(0), 300);
     }, 200);
   };
 
   // Signup email
   const handleSignupEmail = () => {
     setSignupError(null);
+    const trimmedName = signupName.trim();
+    if (!trimmedName || trimmedName.length < 2) { setSignupError(t('login.errNameRequired')); return; }
+    if (trimmedName.length > 50) { setSignupError('Name is too long (max 50 characters).'); return; }
     const email = signupEmailInput.trim().toLowerCase();
-    if (!email.includes('@')) { setSignupError('Please enter a valid email address.'); return; }
+    if (!email.includes('@')) { setSignupError(t('login.errInvalidEmail')); return; }
     const emails = getSignupEmails();
-    if (emails.includes(email)) { setSignupError('This email is already registered. Sign in instead.'); return; }
+    if (emails.includes(email)) { setSignupError(t('login.errEmailExists')); return; }
     setMode('signup-email-verify');
     setVerifyDigits(['','','','','','']);
     setAutoFilling(false);
     setTimeout(() => {
       setAutoFilling(true);
       const digits = ['7','3','9','2','5','1'];
-      let i = 0;
-      const fill = () => {
-        if (i >= 6) {
+      const fill = (idx) => {
+        if (idx >= 6) {
           setVerifyDigits([...digits]);
           setTimeout(() => {
             const updatedEmails = [...emails, email];
             localStorage.setItem('munni_signup_emails', JSON.stringify(updatedEmails));
-            doLogin('email', email, signupName.trim() || 'munni User');
+            doLogin('email', email, signupName.trim());
           }, 800);
           return;
         }
-        setVerifyDigits(prev => { const n=[...prev]; n[i]=digits[i]; return n; });
-        i++; setTimeout(fill, 250);
+        setVerifyDigits(prev => { const n=[...prev]; n[idx]=digits[idx]; return n; });
+        setTimeout(() => fill(idx + 1), 100);
       };
-      setTimeout(fill, 1200);
+      setTimeout(() => fill(0), 300);
     }, 200);
   };
 
@@ -10429,18 +10745,59 @@ function ScreenLoginGate({ onLogin }) {
 
   const Divr = () => (
     <div style={{ display:'flex', alignItems:'center', gap:12, margin:'4px 0' }}>
-      <div style={{ flex:1, height:1, background:M.line2 }}/><div style={{ fontSize:12, color:M.ink4 }}>or</div><div style={{ flex:1, height:1, background:M.line2 }}/>
+      <div style={{ flex:1, height:1, background:M.line2 }}/><div style={{ fontSize:12, color:M.ink4 }}>{t('login.or')}</div><div style={{ flex:1, height:1, background:M.line2 }}/>
     </div>
   );
 
   // Loading overlay
   if (loadingMethod) {
+    const isGoogle = loadingMethod === 'google';
     return (
-      <div className="m-screen" style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, padding:40 }}>
-        <div className="m-logo" style={{ fontSize:24, marginBottom:8 }}>munni<span className="dot">.</span></div>
-        <div style={{ fontSize:14, color:M.ink3 }}>Signing in with {loadingMethod === 'google' ? 'Google' : 'Apple'}…</div>
-        <div style={{ display:'flex', gap:6, marginTop:8 }}>
-          {[0,1,2].map(i => <div key={i} style={{ width:8, height:8, borderRadius:'50%', background:M.sage, animation:`mFadeIn 0.6s ${i*0.2}s infinite alternate` }}/>)}
+      <div className="m-screen m-fade" style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:24, padding:40, background: isGoogle ? M.paper : '#111' }}>
+        <div style={{ width:80, height:80, borderRadius:24, background: isGoogle ? '#fff' : '#1C1C1E', display:'flex', alignItems:'center', justifyContent:'center', boxShadow: isGoogle ? '0 4px 24px rgba(66,133,244,0.18)' : '0 4px 24px rgba(0,0,0,0.5)' }}>
+          {isGoogle ? <IcoGoogle size={44}/> : <IcoApple size={40} color="#fff"/>}
+        </div>
+        <div style={{ textAlign:'center' }}>
+          <div style={{ fontSize:18, fontWeight:600, color: isGoogle ? M.ink : '#fff', marginBottom:6 }}>{t('login.signingIn')} {isGoogle ? 'Google' : 'Apple'}…</div>
+          <div style={{ fontSize:13, color: isGoogle ? M.ink3 : 'rgba(255,255,255,0.5)' }}>{t('login.subtitle')}</div>
+        </div>
+        <div style={{ display:'flex', gap:7, marginTop:4 }}>
+          {[0,1,2].map(i => <div key={i} style={{ width:8, height:8, borderRadius:'50%', background: isGoogle ? '#4285F4' : '#fff', animation:`mFadeIn 0.6s ${i*0.2}s infinite alternate` }}/>)}
+        </div>
+      </div>
+    );
+  }
+
+  // No account found (Google / Apple)
+  if (mode === 'no-account') {
+    const isGoogle = noAccountMethod === 'google';
+    return (
+      <div className="m-screen m-fade">
+        <StatusBar/>
+        <div style={{ padding:'16px 20px 0', flexShrink:0 }}>
+          <button className="m-tap" onClick={() => { setMode('login'); setNoAccountMethod(null); }} style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:M.ink3, fontFamily:M.fontUI, fontSize:13 }}>
+            <I name="arrowL" size={16} color={M.ink3}/> {t('action.back')}
+          </button>
+        </div>
+        <div style={{ flex:1, display:'flex', flexDirection:'column', padding:'32px 24px 40px', alignItems:'center' }}>
+          <div style={{ width:72, height:72, borderRadius:20, background: isGoogle ? '#f8f9fa' : '#1C1C1E', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:24, boxShadow: isGoogle ? '0 4px 16px rgba(66,133,244,0.15)' : '0 4px 16px rgba(0,0,0,0.2)' }}>
+            {isGoogle ? <IcoGoogle size={38}/> : <IcoApple size={34} color="#fff"/>}
+          </div>
+          <div className="m-h2" style={{ marginBottom:10, textAlign:'center' }}>{t('login.noAccountTitle')}</div>
+          <div style={{ fontSize:14, color:M.ink3, marginBottom:8, textAlign:'center', lineHeight:1.6 }}>{t('login.noAccountSub')}</div>
+          <div style={{ fontSize:13, color:M.ink3, marginBottom:36, textAlign:'center', lineHeight:1.6 }}>{t('login.noAccountDesc')}</div>
+          <div style={{ width:'100%', display:'flex', flexDirection:'column', gap:10 }}>
+            <button className="m-btn sage m-tap" style={{ height:52, width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:10 }} onClick={() => { isGoogle ? handleGoogle(true) : handleApple(true); }}>
+              {isGoogle ? <IcoGoogle size={18}/> : <IcoApple size={18} color="#fff"/>}
+              <span>{t('login.noAccountContinue')} {isGoogle ? 'Google' : 'Apple'}</span>
+            </button>
+            <button className="m-btn outline m-tap" style={{ height:48, width:'100%' }} onClick={() => { setNoAccountMethod(null); setSignupEmailInput(''); setSignupError(null); setMode('signup-email'); }}>
+              {t('login.noAccountCustom')}
+            </button>
+            <button className="m-tap" onClick={() => { setMode('login'); setNoAccountMethod(null); }} style={{ background:'transparent', border:'none', fontSize:13, color:M.ink3, cursor:'pointer', fontFamily:M.fontUI, textDecoration:'underline', padding:'10px 0', textAlign:'center' }}>
+              {t('login.noAccountBack')}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -10453,15 +10810,15 @@ function ScreenLoginGate({ onLogin }) {
       <div className="m-screen">
         <StatusBar/>
         <div style={{ padding:'16px 20px 0', flexShrink:0 }}>
-          <button className="m-tap" onClick={() => setMode(mode === 'email-verify' ? 'email-input' : 'signup-email')} style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:M.ink3, fontFamily:M.fontUI, fontSize:13 }}>
-            <I name="arrowL" size={16} color={M.ink3}/> Back
+          <button className="m-tap" onClick={() => setMode(mode === 'email-verify' ? 'login' : 'signup-email')} style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:M.ink3, fontFamily:M.fontUI, fontSize:13 }}>
+            <I name="arrowL" size={16} color={M.ink3}/> {t('action.back')}
           </button>
         </div>
         <div style={{ flex:1, display:'flex', flexDirection:'column', padding:'24px 24px 32px', overflowY:'auto' }}>
           <div className="m-logo" style={{ fontSize:22, marginBottom:20 }}>munni<span className="dot">.</span></div>
-          <div className="m-h2" style={{ marginBottom:6 }}>Check your email</div>
+          <div className="m-h2" style={{ marginBottom:6 }}>{t('login.checkEmail')}</div>
           <div style={{ fontSize:13, color:M.ink3, marginBottom:28, lineHeight:1.5 }}>
-            We sent a 6-digit code to <strong>{emailForDisplay}</strong>
+            {t('login.codeSentTo')} <strong>{emailForDisplay}</strong>
           </div>
           <div style={{ display:'flex', gap:8, justifyContent:'center', marginBottom:24 }}>
             {verifyDigits.map((d, i) => (
@@ -10470,7 +10827,7 @@ function ScreenLoginGate({ onLogin }) {
               </div>
             ))}
           </div>
-          {autoFilling && <div style={{ textAlign:'center', fontSize:12, color:M.sage }}>Auto-filling code…</div>}
+          {autoFilling && <div style={{ textAlign:'center', fontSize:12, color:M.sage }}>{t('login.autoFilling')}</div>}
         </div>
       </div>
     );
@@ -10483,20 +10840,20 @@ function ScreenLoginGate({ onLogin }) {
         <StatusBar/>
         <div style={{ padding:'16px 20px 0', flexShrink:0 }}>
           <button className="m-tap" onClick={() => setMode('login')} style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:M.ink3, fontFamily:M.fontUI, fontSize:13 }}>
-            <I name="arrowL" size={16} color={M.ink3}/> Back
+            <I name="arrowL" size={16} color={M.ink3}/> {t('action.back')}
           </button>
         </div>
         <div style={{ flex:1, display:'flex', flexDirection:'column', padding:'24px 24px 32px', overflowY:'auto' }}>
           <div className="m-logo" style={{ fontSize:22, marginBottom:20 }}>munni<span className="dot">.</span></div>
-          <div className="m-h2" style={{ marginBottom:6 }}>Sign in</div>
-          <div style={{ fontSize:13, color:M.ink3, marginBottom:24 }}>Enter your email address</div>
+          <div className="m-h2" style={{ marginBottom:6 }}>{t('login.signInTitle')}</div>
+          <div style={{ fontSize:13, color:M.ink3, marginBottom:24 }}>{t('login.signInSub')}</div>
           <input
             value={emailInput} onChange={e => { setEmailInput(e.target.value); setLoginError(null); }}
-            type="email" placeholder="your@email.com"
+            type="email" placeholder={t('login.emailPlaceholder')}
             style={{ width:'100%', boxSizing:'border-box', padding:'14px 16px', borderRadius:12, border:`1.5px solid ${loginError?M.clay:M.line}`, fontSize:15, fontFamily:M.fontUI, background:M.paper2, outline:'none', marginBottom:loginError?8:16, color:M.ink }}
           />
-          {loginError && <div style={{ fontSize:12, color:M.clay, marginBottom:12, lineHeight:1.4 }}>{loginError} <button onClick={() => { setLoginError(null); setMode('signup-email'); }} style={{ background:'none', border:'none', color:M.sage, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, fontSize:12 }}>Create account →</button></div>}
-          <button className="m-btn sage m-tap" style={{ height:52, width:'100%' }} onClick={handleEmailContinue}>Continue</button>
+          {loginError && <div style={{ fontSize:12, color:M.clay, marginBottom:12, lineHeight:1.4 }}>{loginError} <button onClick={() => { setLoginError(null); setMode('signup-email'); }} style={{ background:'none', border:'none', color:M.sage, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, fontSize:12 }}>{t('login.createAccount')}</button></div>}
+          <button className="m-btn sage m-tap" style={{ height:52, width:'100%' }} onClick={handleEmailContinue}>{t('login.continue')}</button>
         </div>
       </div>
     );
@@ -10509,22 +10866,22 @@ function ScreenLoginGate({ onLogin }) {
         <StatusBar/>
         <div style={{ padding:'16px 20px 0', flexShrink:0 }}>
           <button className="m-tap" onClick={() => setMode('signup')} style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:M.ink3, fontFamily:M.fontUI, fontSize:13 }}>
-            <I name="arrowL" size={16} color={M.ink3}/> Back
+            <I name="arrowL" size={16} color={M.ink3}/> {t('action.back')}
           </button>
         </div>
         <div style={{ flex:1, display:'flex', flexDirection:'column', padding:'24px 24px 32px', overflowY:'auto' }}>
           <div className="m-logo" style={{ fontSize:22, marginBottom:20 }}>munni<span className="dot">.</span></div>
-          <div className="m-h2" style={{ marginBottom:6 }}>Create account</div>
-          <div style={{ fontSize:13, color:M.ink3, marginBottom:24 }}>Sign up with your email address</div>
-          <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Full name</div>
-          <input value={signupName} onChange={e => setSignupName(e.target.value)} placeholder="Your name"
-            style={{ width:'100%', boxSizing:'border-box', padding:'13px 16px', borderRadius:12, border:`1.5px solid ${M.line}`, fontSize:15, fontFamily:M.fontUI, background:M.paper2, outline:'none', marginBottom:12, color:M.ink }}/>
-          <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>Email address</div>
-          <input value={signupEmailInput} onChange={e => { setSignupEmailInput(e.target.value); setSignupError(null); }} type="email" placeholder="your@email.com"
+          <div className="m-h2" style={{ marginBottom:6 }}>{t('login.createAccountTitle')}</div>
+          <div style={{ fontSize:13, color:M.ink3, marginBottom:24 }}>{t('login.createAccountEmailSub')}</div>
+          <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>{t('login.fullName')}</div>
+          <input value={signupName} onChange={e => { setSignupName(e.target.value); setSignupError(null); }} placeholder={t('login.namePlaceholder')}
+            style={{ width:'100%', boxSizing:'border-box', padding:'13px 16px', borderRadius:12, border:`1.5px solid ${signupError && (!signupName.trim() || signupName.trim().length < 2) ? M.clay : M.line}`, fontSize:15, fontFamily:M.fontUI, background:M.paper2, outline:'none', marginBottom:12, color:M.ink }}/>
+          <div style={{ fontSize:12, color:M.ink3, marginBottom:6 }}>{t('login.email')}</div>
+          <input value={signupEmailInput} onChange={e => { setSignupEmailInput(e.target.value); setSignupError(null); }} type="email" placeholder={t('login.emailPlaceholder')}
             style={{ width:'100%', boxSizing:'border-box', padding:'13px 16px', borderRadius:12, border:`1.5px solid ${signupError?M.clay:M.line}`, fontSize:15, fontFamily:M.fontUI, background:M.paper2, outline:'none', marginBottom:signupError?8:20, color:M.ink }}/>
           {signupError && <div style={{ fontSize:12, color:M.clay, marginBottom:12, lineHeight:1.4 }}>{signupError}</div>}
           <button className="m-btn sage m-tap" style={{ height:52, width:'100%', opacity:signupEmailInput.trim() ? 1 : 0.5 }} onClick={handleSignupEmail} disabled={!signupEmailInput.trim()}>
-            Send verification code
+            {t('login.sendCode')}
           </button>
         </div>
       </div>
@@ -10538,24 +10895,24 @@ function ScreenLoginGate({ onLogin }) {
         <StatusBar/>
         <div style={{ padding:'16px 20px 0', flexShrink:0 }}>
           <button className="m-tap" onClick={() => setMode('login')} style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:M.ink3, fontFamily:M.fontUI, fontSize:13 }}>
-            <I name="arrowL" size={16} color={M.ink3}/> Sign in
+            <I name="arrowL" size={16} color={M.ink3}/> {t('login.signIn')}
           </button>
         </div>
         <div style={{ flex:1, display:'flex', flexDirection:'column', padding:'24px 24px 32px', overflowY:'auto' }}>
           <div className="m-logo" style={{ fontSize:24, marginBottom:16 }}>munni<span className="dot">.</span></div>
-          <div className="m-h2" style={{ marginBottom:4 }}>Create account</div>
-          <div style={{ fontSize:13, color:M.ink3, marginBottom:24 }}>Choose how to sign up</div>
+          <div className="m-h2" style={{ marginBottom:4 }}>{t('login.createAccountTitle')}</div>
+          <div style={{ fontSize:13, color:M.ink3, marginBottom:24 }}>{t('login.createAccountSub')}</div>
           {signupError && <div style={{ padding:'10px 14px', borderRadius:10, background:M.claySoft, marginBottom:14, fontSize:13, color:M.clay, lineHeight:1.4 }}>{signupError}</div>}
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             <button className="m-btn outline m-tap" style={{ height:52, justifyContent:'flex-start', paddingLeft:20, gap:12 }} onClick={() => handleGoogle(true)}>
-              <I name="g" size={20}/> Continue with Google
+              <IcoGoogle size={20}/> {t('login.google')}
             </button>
             <button className="m-btn outline m-tap" style={{ height:52, justifyContent:'flex-start', paddingLeft:20, gap:12 }} onClick={() => handleApple(true)}>
-              <I name="apple" size={20}/> Continue with Apple
+              <IcoApple size={20} color={M.ink}/> {t('login.apple')}
             </button>
             <Divr/>
             <button className="m-btn outline m-tap" style={{ height:52, justifyContent:'flex-start', paddingLeft:20, gap:10 }} onClick={() => { setSignupEmailInput(''); setSignupError(null); setMode('signup-email'); }}>
-              <I name="edit" size={18}/> Sign up with email
+              <I name="edit" size={18}/> {t('login.signUpEmail')}
             </button>
           </div>
         </div>
@@ -10577,7 +10934,7 @@ function ScreenLoginGate({ onLogin }) {
           <div className="m-h2" style={{ marginBottom:4 }}>Connect your bank</div>
           <div style={{ fontSize:14, color:M.ink2, marginBottom:24, lineHeight:1.5 }}>Read-only via Open Banking. ING, Rabobank, ABN AMRO, N26 and 200+ more.</div>
           {['ING','Rabobank','ABN AMRO','N26','bunq','ASN Bank'].map((bank) => (
-            <div key={bank} className="m-tap" onClick={() => doLogin('bank', 'bank@munni.app', 'Bank User')} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 0', borderBottom:`1px solid ${M.line2}` }}>
+            <div key={bank} className="m-tap" onClick={() => doLogin('bank', 'bank@munni.app', 'Bank van der Berg')} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 0', borderBottom:`1px solid ${M.line2}` }}>
               <div style={{ width:38, height:38, borderRadius:10, background:M.paper2, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                 <I name="card" size={17} color={M.ink3}/>
               </div>
@@ -10598,28 +10955,27 @@ function ScreenLoginGate({ onLogin }) {
         <div style={{ marginBottom: 32 }}>
           <div className="m-logo" style={{ fontSize: 28, marginBottom: 14 }}>munni<span className="dot">.</span></div>
           <div className="m-h2" style={{ marginBottom: 6 }}>
-            {hasOpenedBefore ? 'Welcome back' : t('login.welcome')}
+            {hasOpenedBefore ? t('login.welcome') : t('login.welcomeFirst')}
           </div>
           <div style={{ fontSize: 14, color: M.ink3 }}>{t('login.subtitle')}</div>
         </div>
 
-        {loginError && (
-          <div style={{ padding:'10px 14px', borderRadius:10, background:M.ochreSoft, marginBottom:12, fontSize:13, color:M.ochre, lineHeight:1.4 }}>
-            {loginError}
-            <button onClick={() => { setLoginError(null); setMode('signup'); }} style={{ display:'block', marginTop:6, background:'none', border:'none', color:M.sage, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, fontSize:12, padding:0 }}>Create account instead →</button>
-          </div>
-        )}
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <button className="m-btn outline m-tap" style={{ height: 52, justifyContent: 'flex-start', paddingLeft: 20, gap: 12 }} onClick={() => handleGoogle(false)}>
-            <I name="g" size={20}/> {t('login.google')}
+            <IcoGoogle size={20}/> {t('login.google')}
           </button>
           <button className="m-btn outline m-tap" style={{ height: 52, justifyContent: 'flex-start', paddingLeft: 20, gap: 12 }} onClick={() => handleApple(false)}>
-            <I name="apple" size={20}/> {t('login.apple')}
+            <IcoApple size={20} color={M.ink}/> {t('login.apple')}
           </button>
           <Divr/>
-          <button className="m-btn outline m-tap" style={{ height:52, justifyContent:'flex-start', paddingLeft:20, gap:10 }} onClick={() => { setLoginError(null); setMode('email-input'); }}>
-            <I name="edit" size={18}/> {t('login.email')}
+          <input
+            value={emailInput} onChange={e => { setEmailInput(e.target.value); setLoginError(null); }}
+            type="email" placeholder={t('login.emailPlaceholder')}
+            style={{ width:'100%', boxSizing:'border-box', padding:'14px 16px', borderRadius:12, border:`1.5px solid ${loginError?M.clay:M.line}`, fontSize:15, fontFamily:M.fontUI, background:M.paper2, outline:'none', color:M.ink }}
+          />
+          {loginError && <div style={{ fontSize:12, color:M.clay, lineHeight:1.4 }}>{loginError} <button onClick={() => { setLoginError(null); setMode('signup'); }} style={{ background:'none', border:'none', color:M.sage, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, fontSize:12 }}>{t('login.createAccount')}</button></div>}
+          <button className="m-btn sage m-tap" style={{ height:52, width:'100%', opacity:emailInput.trim()?1:0.5 }} onClick={handleEmailContinue} disabled={!emailInput.trim()}>
+            {t('login.continue')}
           </button>
         </div>
 
@@ -10638,8 +10994,8 @@ function ScreenLoginGate({ onLogin }) {
           const profiles = JSON.parse(localStorage.getItem('munni_profiles') || JSON.stringify(DEFAULT_PROFILES));
           const updated = profiles.map(p => ({ ...p, active: p.id === 'p_demo' }));
           localStorage.setItem('munni_profiles', JSON.stringify(updated));
-          localStorage.setItem('munni_profile_email', 'demo@munni.app');
-          localStorage.setItem('munni_profile_name', 'Demo van der Berg');
+          localStorage.setItem('munni_profile_email', JSON.stringify('demo@munni.app'));
+          localStorage.setItem('munni_profile_name', JSON.stringify('Demo van der Berg'));
           onLogin();
         }}
           style={{ background: 'transparent', border: 'none', fontSize: 12, color: M.ink4, cursor: 'pointer', marginTop: 8, fontFamily: M.fontUI, textAlign: 'center' }}>
@@ -10647,10 +11003,11 @@ function ScreenLoginGate({ onLogin }) {
         </button>
 
         <div style={{ fontSize: 11, color: M.ink4, textAlign: 'center', marginTop: 14, lineHeight: 1.6 }}>
-          By continuing you agree to our{' '}
-          <button onClick={() => setMode('terms')} style={{ background:'none', border:'none', color:M.sage, fontWeight:500, cursor:'pointer', fontFamily:M.fontUI, fontSize:11, textDecoration:'underline' }}>Terms of Service</button>
-          {' '}and{' '}
-          <button onClick={() => setMode('privacy')} style={{ background:'none', border:'none', color:M.sage, fontWeight:500, cursor:'pointer', fontFamily:M.fontUI, fontSize:11, textDecoration:'underline' }}>Privacy Policy</button>
+          {t('login.termsIntro')}{' '}
+          <button onClick={() => setMode('terms')} style={{ background:'none', border:'none', color:M.sage, fontWeight:500, cursor:'pointer', fontFamily:M.fontUI, fontSize:11, textDecoration:'underline' }}>{t('login.termsLinkText')}</button>
+          {' '}{t('login.termsAnd')}{' '}
+          <button onClick={() => setMode('privacy')} style={{ background:'none', border:'none', color:M.sage, fontWeight:500, cursor:'pointer', fontFamily:M.fontUI, fontSize:11, textDecoration:'underline' }}>{t('login.termsPrivacy')}</button>
+          {(()=>{ const s=t('login.termsSuffix'); return (s && s!=='login.termsSuffix') ? <>{' '}{s}</> : null; })()}
         </div>
         <div style={{ textAlign:'center', marginTop:14 }}>
           <button className="m-tap" onClick={() => setMode('language')}
