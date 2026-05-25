@@ -1502,6 +1502,7 @@ const TRANSLATIONS = {
     'friends.remove':'Remove','friends.accept':'Accept','friends.decline':'Decline','friends.block':'Block',
     'friends.inviteNotif':'Friend invite from','friends.alreadyFriends':'Already friends',
     'friends.inviteSelf':"Can't invite yourself",'friends.cancelInvite':'Cancel invite',
+    'friends.friendsLabel':'Friends','friends.profileInviteFrom':'Profile invite','friends.profileInviteJoin':'Join profile',
     'profile.members':'Members','profile.addMember':'Invite a friend','profile.noMembers':'Only you have access',
     'profile.permReader':'Reader','profile.permContributor':'Contributor','profile.permOwner':'Owner',
     'profile.kick':'Remove member','profile.kickWarn':'Their connected bank accounts will be removed from this profile.',
@@ -1696,6 +1697,7 @@ const TRANSLATIONS = {
     'friends.remove':'Verwijderen','friends.accept':'Accepteren','friends.decline':'Weigeren','friends.block':'Blokkeren',
     'friends.inviteNotif':'Vriendverzoek van','friends.alreadyFriends':'Al bevriend',
     'friends.inviteSelf':'Je kunt jezelf niet uitnodigen','friends.cancelInvite':'Uitnodiging annuleren',
+    'friends.friendsLabel':'Vrienden','friends.profileInviteFrom':'Profieluitnodiging','friends.profileInviteJoin':'Profiel toevoegen',
     'profile.members':'Leden','profile.addMember':'Vriend uitnodigen','profile.noMembers':'Alleen jij hebt toegang',
     'profile.permReader':'Lezer','profile.permContributor':'Bijdrager','profile.permOwner':'Eigenaar',
     'profile.kick':'Lid verwijderen','profile.kickWarn':'Hun bankrekeningen worden verwijderd uit dit profiel.',
@@ -1886,6 +1888,7 @@ const TRANSLATIONS = {
     'friends.remove':'Kaldır','friends.accept':'Kabul et','friends.decline':'Reddet','friends.block':'Engelle',
     'friends.inviteNotif':'Arkadaşlık isteği:','friends.alreadyFriends':'Zaten arkadaşsınız',
     'friends.inviteSelf':'Kendinizi davet edemezsiniz','friends.cancelInvite':'Daveti iptal et',
+    'friends.friendsLabel':'Arkadaşlar','friends.profileInviteFrom':'Profil daveti','friends.profileInviteJoin':'Profile katıl',
     'profile.members':'Üyeler','profile.addMember':'Arkadaş davet et','profile.noMembers':'Yalnızca siz erişebilirsiniz',
     'profile.permReader':'Okuyucu','profile.permContributor':'Katkıcı','profile.permOwner':'Sahip',
     'profile.kick':'Üyeyi kaldır','profile.kickWarn':'Bağlı banka hesapları bu profilden kaldırılacak.',
@@ -4323,15 +4326,7 @@ function ScreenProfile() {
   const initial = (name || '?').charAt(0).toUpperCase();
 
   const isDemo = localStorage.getItem('munni_last_login_method') === 'bank';
-  const userId = React.useMemo(() => getUserId(), []);
-  const [idCopied, setIdCopied] = React.useState(false);
   const connectedBanks = connectedAccounts.filter(a => a.type === 'checking').length;
-
-  const copyUserId = () => {
-    navigator.clipboard?.writeText(userId).catch(() => {});
-    setIdCopied(true);
-    setTimeout(() => setIdCopied(false), 1800);
-  };
   const _lastMethod = localStorage.getItem('munni_last_login_method') || '';
   const emailDisplay = isDemo ? 'demo@munni.app' : (email && !['google@munni.app','apple@munni.app','bank@munni.app',''].includes(email)) ? email : _lastMethod === 'google' ? t('login.signedInGoogle') : _lastMethod === 'apple' ? t('login.signedInApple') : (email || '');
 
@@ -4373,13 +4368,6 @@ function ScreenProfile() {
             )}
             <div style={{ fontSize: 12, color: M.ink3 }}>{emailDisplay}</div>
             {isDemo && <div style={{ fontSize:11, color:M.ochre, marginTop:3 }}>Demo account · read-only profile</div>}
-            <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:5 }}>
-              <span style={{ fontSize:11, color:M.ink4 }}>{t('settings.userId')}:</span>
-              <span style={{ fontSize:11, color:M.ink2, fontFamily:M.fontMono, fontWeight:600, letterSpacing:'0.04em' }}>{userId}</span>
-              <button className="m-tap" onClick={copyUserId} style={{ background:idCopied?M.sageSoft:M.paper2, border:`1px solid ${idCopied?M.sage:M.line}`, borderRadius:6, padding:'2px 8px', fontSize:10, fontWeight:600, color:idCopied?M.sage:M.ink3, cursor:'pointer', fontFamily:M.fontUI, flexShrink:0 }}>
-                {idCopied ? t('settings.copied') : t('settings.copyId')}
-              </button>
-            </div>
           </div>
           {!isDemo && (editing ? (
             <button className="m-tap" onClick={save} style={{ width:36, height:36, borderRadius:999, background:M.sage, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -5799,17 +5787,19 @@ function ScreenManageCategories() {
   );
 }
 
-function FriendInviteCards() {
+function InviteCards() {
   const { t } = useLang();
   const myId = React.useMemo(() => getUserId(), []);
   const [invitations, setInvitations] = useLocalStorage('munni_global_invitations', []);
   const [friendships, setFriendships] = useLocalStorage('munni_global_friendships', []);
   const [userRegistry] = useLocalStorage('munni_global_users', {});
 
-  const pending = invitations.filter(inv => inv.toId === myId && inv.type === 'friend' && inv.status === 'pending');
-  if (pending.length === 0) return null;
+  const pendingFriend = invitations.filter(inv => inv.toId === myId && inv.type === 'friend' && inv.status === 'pending');
+  const pendingProfile = invitations.filter(inv => inv.toId === myId && inv.type === 'profile' && inv.status === 'pending');
 
-  const respond = (inv, action) => {
+  if (pendingFriend.length === 0 && pendingProfile.length === 0) return null;
+
+  const respondFriend = (inv, action) => {
     setInvitations(list => list.map(i => i.id === inv.id ? { ...i, status: action } : i));
     if (action === 'accepted') {
       setFriendships(list => {
@@ -5820,37 +5810,50 @@ function FriendInviteCards() {
     }
   };
 
+  const respondProfile = (inv, action) => {
+    setInvitations(list => list.map(i => i.id === inv.id ? { ...i, status: action, respondedAt: Date.now() } : i));
+  };
+
+  const renderRow = (inv, onAccept, onDecline, sub) => {
+    const name = userRegistry[inv.fromId]?.displayName || inv.fromId;
+    return (
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0' }}>
+        <div style={{ width:36, height:36, borderRadius:999, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <I name="users" size={16} color={M.sage}/>
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:14, fontWeight:600 }}>{name}</div>
+          <div style={{ fontSize:11, color:M.ink3 }}>{sub}</div>
+        </div>
+        <div style={{ display:'flex', gap:6 }}>
+          <button className="m-tap" onClick={onAccept}
+            style={{ padding:'6px 12px', borderRadius:8, background:M.sage, color:'#fff', border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
+            {t('friends.accept')}
+          </button>
+          <button className="m-tap" onClick={onDecline}
+            style={{ padding:'6px 10px', borderRadius:8, background:M.paper2, color:M.ink3, border:`1px solid ${M.line}`, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
+            {t('friends.decline')}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const allPending = [...pendingFriend, ...pendingProfile];
+
   return (
     <>
       <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('friends.pending')}</div>
       <div className="m-card" style={{ padding:'4px 16px', marginBottom:16, border:`1px solid ${M.line}` }}>
-        {pending.map((inv, i) => {
-          const name = userRegistry[inv.fromId]?.displayName || inv.fromId;
-          return (
-            <React.Fragment key={inv.id}>
-              {i > 0 && <Divider inset={48}/>}
-              <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0' }}>
-                <div style={{ width:36, height:36, borderRadius:999, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <I name="users" size={16} color={M.sage}/>
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:14, fontWeight:600 }}>{name}</div>
-                  <div style={{ fontSize:11, color:M.ink3, fontFamily:M.fontMono }}>{inv.fromId}</div>
-                </div>
-                <div style={{ display:'flex', gap:6 }}>
-                  <button className="m-tap" onClick={() => respond(inv,'accepted')}
-                    style={{ padding:'6px 12px', borderRadius:8, background:M.sage, color:'#fff', border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
-                    {t('friends.accept')}
-                  </button>
-                  <button className="m-tap" onClick={() => respond(inv,'declined')}
-                    style={{ padding:'6px 12px', borderRadius:8, background:M.paper2, color:M.ink2, border:`1px solid ${M.line}`, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
-                    {t('friends.decline')}
-                  </button>
-                </div>
-              </div>
-            </React.Fragment>
-          );
-        })}
+        {allPending.map((inv, i) => (
+          <React.Fragment key={inv.id}>
+            {i > 0 && <Divider inset={48}/>}
+            {inv.type === 'friend'
+              ? renderRow(inv, () => respondFriend(inv, 'accepted'), () => respondFriend(inv, 'declined'), inv.fromId)
+              : renderRow(inv, () => respondProfile(inv, 'accepted'), () => respondProfile(inv, 'declined'),
+                  `${t('friends.profileInviteFrom')}: ${inv.profileName || '—'}`)}
+          </React.Fragment>
+        ))}
       </div>
     </>
   );
@@ -5940,7 +5943,7 @@ function ScreenNotifications() {
           )}
         </div>
 
-        <FriendInviteCards/>
+        <InviteCards/>
 
         <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('notif.recentTitle')}</div>
         <div className="m-card" style={{ padding:'4px 16px', marginBottom:16, border:`1px solid ${M.line}` }}>
@@ -8285,8 +8288,10 @@ function useLocalStorage(key, defaultValue) {
   const [state, setState] = React.useState(read);
   React.useEffect(() => {
     const handler = (e) => { if (e.detail?.key === key) setState(read()); };
+    const storageHandler = (e) => { if (e.key === key) setState(read()); };
     window.addEventListener('munni-ls', handler);
-    return () => window.removeEventListener('munni-ls', handler);
+    window.addEventListener('storage', storageHandler);
+    return () => { window.removeEventListener('munni-ls', handler); window.removeEventListener('storage', storageHandler); };
   }, [key, read]);
   const set = React.useCallback(val => {
     setState(prev => {
@@ -10913,13 +10918,14 @@ function ScreenFriends() {
 
         <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('friends.invite')}</div>
         <div className="m-card" style={{ padding:'14px 16px', marginBottom:16, border:`1px solid ${M.line}` }}>
-          <div style={{ display:'flex', gap:8 }}>
-            <input value={inviteInput} onChange={e=>{setInviteInput(e.target.value);setInviteError('');}}
-              placeholder={t('friends.invitePlaceholder')}
-              style={{ flex:1, padding:'10px 12px', borderRadius:10, border:`1px solid ${inviteError?M.clay:M.line}`, fontSize:13, fontFamily:M.fontMono, background:M.paper2, color:M.ink, outline:'none' }}
-              onKeyDown={e=>e.key==='Enter'&&sendInvite()}/>
-            <button className="m-btn sage m-tap" style={{ padding:'0 16px', flexShrink:0, fontSize:13 }} onClick={sendInvite}>{t('friends.send')}</button>
-          </div>
+          <input value={inviteInput} onChange={e=>{setInviteInput(e.target.value);setInviteError('');}}
+            placeholder={t('friends.invitePlaceholder')}
+            style={{ width:'100%', padding:'11px 12px', borderRadius:10, border:`1px solid ${inviteError?M.clay:M.line}`, fontSize:13, fontFamily:M.fontMono, background:M.paper2, color:M.ink, outline:'none', boxSizing:'border-box', marginBottom:10 }}
+            onKeyDown={e=>e.key==='Enter'&&sendInvite()}/>
+          <button onClick={sendInvite}
+            style={{ width:'100%', padding:'12px 0', borderRadius:10, background:inviteInput.trim()?M.sage:M.line, color:inviteInput.trim()?'#fff':M.ink4, border:'none', fontSize:14, fontWeight:600, cursor:inviteInput.trim()?'pointer':'default', fontFamily:M.fontUI }}>
+            {t('friends.send')}
+          </button>
           {inviteError && <div style={{ fontSize:12, color:M.clay, marginTop:8 }}>{inviteError}</div>}
           {inviteSent && <div style={{ fontSize:12, color:M.sage, marginTop:8, fontWeight:500 }}>{t('friends.sent')}</div>}
         </div>
@@ -10943,7 +10949,7 @@ function ScreenFriends() {
           </div>
         </>)}
 
-        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>Friends ({myFriendIds.length})</div>
+        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('friends.friendsLabel')} ({myFriendIds.length})</div>
         {myFriendIds.length === 0 ? (
           <div style={{ textAlign:'center', color:M.ink4, fontSize:13, padding:'28px 0' }}>{t('friends.noFriends')}</div>
         ) : (
@@ -10984,8 +10990,23 @@ function ProfileMembersSheet({ profile, onClose }) {
   const [kickConfirm, setKickConfirm] = React.useState(null);
   const [permEdit, setPermEdit] = React.useState(null);
 
-  const myFriendIds = friendships.filter(f=>f.users.includes(myId)).map(f=>f.users.find(u=>u!==myId));
+  const myFriendIds = friendships.filter(f=>f.users&&f.users.includes(myId)).map(f=>f.users.find(u=>u!==myId));
   const members = profile.members || [];
+
+  // Auto-add members whose profile invites were accepted
+  React.useEffect(() => {
+    const accepted = invitations.filter(inv =>
+      inv.fromId === myId && inv.type === 'profile' && inv.profileId === profile.id && inv.status === 'accepted'
+      && !(profile.members||[]).some(m => m.userId === inv.toId)
+    );
+    if (accepted.length === 0) return;
+    setProfiles(ps => ps.map(p => {
+      if (p.id !== profile.id) return p;
+      const newMembers = accepted.map(inv => ({ userId: inv.toId, displayName: userRegistry[inv.toId]?.displayName || inv.toId, permission: inv.permission || 'contributor', accountIds: [] }));
+      return { ...p, members: [...(p.members||[]), ...newMembers] };
+    }));
+    setInvitations(arr => arr.map(i => accepted.some(a=>a.id===i.id) ? { ...i, status:'joined' } : i));
+  }, [invitations]);
   const myPerm = members.find(m=>m.userId===myId)?.permission || 'owner';
   const canManage = myPerm === 'owner';
   const pendingMemberInvites = invitations.filter(i=>i.fromId===myId&&i.type==='profile'&&i.profileId===profile.id&&i.status==='pending');
