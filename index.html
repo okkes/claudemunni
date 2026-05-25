@@ -736,15 +736,19 @@ function fmtSyncTime(isoStr) {
   if (!isoStr) return null;
   const d = new Date(isoStr);
   if (isNaN(d)) return null;
+  const lang = localStorage.getItem('munni_lang') || 'en';
   const now = Date.now();
   const diff = Math.floor((now - d.getTime()) / 1000);
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  const JUST_NOW = { en:'just now', nl:'zojuist', tr:'az önce' };
+  const MIN_AGO  = { en:(n)=>`${n} min ago`, nl:(n)=>`${n} min geleden`, tr:(n)=>`${n} dk önce` };
+  const YEST     = { en:'yesterday', nl:'gisteren', tr:'dün' };
+  if (diff < 60) return JUST_NOW[lang] || JUST_NOW.en;
+  if (diff < 3600) return (MIN_AGO[lang] || MIN_AGO.en)(Math.floor(diff / 60));
   const hm = d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
   const nowD = new Date();
   const dayDiff = Math.floor((nowD.setHours(0,0,0,0) - new Date(d).setHours(0,0,0,0)) / 86400000);
   if (dayDiff === 0) return hm;
-  if (dayDiff === 1) return `yesterday ${hm}`;
+  if (dayDiff === 1) return `${YEST[lang] || YEST.en} ${hm}`;
   const day = d.getDate();
   const mon = d.toLocaleString('en-GB', { month: 'short' }).toLowerCase();
   if (d.getFullYear() === new Date().getFullYear()) return `${day} ${mon}, ${hm}`;
@@ -754,6 +758,41 @@ function fmtSyncTime(isoStr) {
 function getUserSyncKey() {
   const m = localStorage.getItem('munni_last_login_method') || 'default';
   return `munni_last_synced_${m}`;
+}
+
+function getUserAccountsKey() {
+  const m = localStorage.getItem('munni_last_login_method') || 'default';
+  return `munni_bank_accounts_${m}`;
+}
+
+function getUserId() {
+  const m = localStorage.getItem('munni_last_login_method') || '';
+  if (m === 'google') return 'ggl-0001';
+  if (m === 'apple') return 'apl-0001';
+  if (m === 'bank') return 'dmo-0001';
+  // Email user: generate/retrieve random ID
+  try {
+    const email = JSON.parse(localStorage.getItem('munni_profile_email') || '""') || '';
+    if (email && !['google@munni.app','apple@munni.app','bank@munni.app',''].includes(email)) {
+      const regKey = 'munni_user_ids';
+      const reg = JSON.parse(localStorage.getItem(regKey) || '{}');
+      if (!reg[email]) {
+        reg[email] = Array.from({ length: 8 }, () => 'abcdefghjkmnpqrstuvwxyz23456789'[Math.floor(Math.random() * 31)]).join('');
+        localStorage.setItem(regKey, JSON.stringify(reg));
+      }
+      return reg[email];
+    }
+  } catch {}
+  return 'usr-0000';
+}
+
+function registerUserInGlobalRegistry(userId, displayName) {
+  try {
+    const reg = JSON.parse(localStorage.getItem('munni_global_users') || '{}');
+    reg[userId] = { displayName: displayName || userId, updatedAt: Date.now() };
+    localStorage.setItem('munni_global_users', JSON.stringify(reg));
+    window.dispatchEvent(new CustomEvent('munni-ls', { detail: { key: 'munni_global_users' } }));
+  } catch {}
 }
 
 function addDevLog(level, msg, src) {
@@ -777,11 +816,24 @@ function addDevLog(level, msg, src) {
 }
 
 const DEMO_ACCOUNT_IDS = ['main', 'save', 'inv'];
-const ACCOUNTS = [
-  { id: 'main', name: 'Main · ING',     iban: 'NL47…4231', balance: 5240.18, type: 'checking', color: '#4A6A4F', isDemo: true },
-  { id: 'save', name: 'Savings · ING',  iban: 'NL47…7782', balance: 3120.50, type: 'savings',  color: '#A8782B', isDemo: true },
-  { id: 'inv',  name: 'Brokerage · DEGIRO', iban: 'NL47…1015', balance: 365.00, type: 'invest', color: '#5E4A78', isDemo: true },
+// Real accounts for google user (same IDs, no isDemo flag → filter demo profiles from picking them)
+const REAL_ACCOUNTS = [
+  { id: 'main', name: 'Main · ING',        iban: 'NL47 INGB 0004 0000 4231', balance: 5240.18, type: 'checking', color: '#ff6200' },
+  { id: 'save', name: 'Savings · ING',     iban: 'NL47 INGB 0007 7000 7782', balance: 3120.50, type: 'savings',  color: '#A8782B' },
+  { id: 'inv',  name: 'Brokerage · DEGIRO',iban: 'NL47 DEGR 0001 0000 1015', balance: 365.00,  type: 'invest',  color: '#5E4A78' },
 ];
+// Demo accounts for demo user / demo profiles
+const DEMO_ACCOUNTS = [
+  { id: 'main', name: 'Demo · ING',       iban: 'NL47 DEMO 0000 0001', balance: 5240.18, type: 'checking', color: '#4A6A4F', isDemo: true },
+  { id: 'save', name: 'Demo Savings',     iban: 'NL47 DEMO 0000 0002', balance: 3120.50, type: 'savings',  color: '#A8782B', isDemo: true },
+];
+const ACCOUNTS = DEMO_ACCOUNTS; // backward compat alias
+
+function getDefaultAccounts(method) {
+  if (method === 'google') return REAL_ACCOUNTS.map(a => ({ ...a }));
+  if (method === 'bank')   return DEMO_ACCOUNTS.map(a => ({ ...a }));
+  return [];
+}
 
 
 const _D0 = new Date();
@@ -1307,6 +1359,8 @@ const TRANSLATIONS = {
     'settings.manage':'Manage','settings.account':'Account',
     'settings.notifications':'Notifications','settings.appearance':'Appearance',
     'settings.tutorial':'Tutorial','settings.help':'Help & support','settings.signOut':'Sign out',
+    'settings.userId':'User ID','settings.copyId':'Copy','settings.copied':'Copied!',
+    'settings.friends':'Friends','settings.friendsSub':'Invite friends to share finance overviews',
     'settings.language':'Language','settings.languageSub':'English, Dutch, Turkish supported',
     // Periods
     'period.income':'Income','period.spent':'Spent','period.invested':'Invested',
@@ -1441,6 +1495,18 @@ const TRANSLATIONS = {
     'profile.deleteProfile':'Delete profile',
     'profile.cannotDeleteActive':'Cannot delete the active profile — switch first',
     'profile.cannotDeleteOnly':'Cannot delete the only profile',
+    'friends.myId':'Your ID','friends.myIdDesc':'Share this ID so others can add you',
+    'friends.invite':'Add a friend','friends.invitePlaceholder':"Enter friend's ID…",
+    'friends.send':'Send invite','friends.sent':'Invite sent!','friends.pending':'Pending invites',
+    'friends.noFriends':'No friends yet — share your ID to connect',
+    'friends.remove':'Remove','friends.accept':'Accept','friends.decline':'Decline','friends.block':'Block',
+    'friends.inviteNotif':'Friend invite from','friends.alreadyFriends':'Already friends',
+    'friends.inviteSelf':"Can't invite yourself",'friends.cancelInvite':'Cancel invite',
+    'profile.members':'Members','profile.addMember':'Invite a friend','profile.noMembers':'Only you have access',
+    'profile.permReader':'Reader','profile.permContributor':'Contributor','profile.permOwner':'Owner',
+    'profile.kick':'Remove member','profile.kickWarn':'Their connected bank accounts will be removed from this profile.',
+    'profile.memberPerm':'Permission','profile.sharedAcct':'Shared via',
+    'accounts.sharedWith':'Shared with me','accounts.iSharing':'I am sharing',
     'profile.deleteConfirmTitle':'Delete profile?',
     'profile.deleteConfirmDesc':'This profile will be permanently removed. Transactions will remain.',
     'profile.deleteDataAlso':'The following data will also be permanently deleted:',
@@ -1495,6 +1561,8 @@ const TRANSLATIONS = {
     'settings.notifications':'Meldingen','settings.appearance':'Weergave',
     'settings.tutorial':'Rondleiding','settings.help':'Help & ondersteuning',
     'settings.signOut':'Uitloggen','settings.language':'Taal',
+    'settings.userId':'Gebruikers-ID','settings.copyId':'Kopiëren','settings.copied':'Gekopieerd!',
+    'settings.friends':'Vrienden','settings.friendsSub':'Nodig vrienden uit om financiën te delen',
     'settings.languageSub':'Engels, Nederlands, Turks beschikbaar',
     'period.income':'Inkomsten','period.spent':'Uitgaven','period.invested':'Geïnvesteerd',
     'period.savings':'Spaargeld','period.allocate':'Verdelen',
@@ -1621,6 +1689,18 @@ const TRANSLATIONS = {
     'profile.deleteProfile':'Profiel verwijderen',
     'profile.cannotDeleteActive':'Kan het actieve profiel niet verwijderen — schakel eerst over',
     'profile.cannotDeleteOnly':'Kan het enige profiel niet verwijderen',
+    'friends.myId':'Jouw ID','friends.myIdDesc':'Deel dit ID zodat anderen je kunnen toevoegen',
+    'friends.invite':'Vriend toevoegen','friends.invitePlaceholder':'Voer vriends-ID in…',
+    'friends.send':'Stuur uitnodiging','friends.sent':'Uitnodiging verstuurd!','friends.pending':'Openstaande uitnodigingen',
+    'friends.noFriends':'Nog geen vrienden — deel je ID om te verbinden',
+    'friends.remove':'Verwijderen','friends.accept':'Accepteren','friends.decline':'Weigeren','friends.block':'Blokkeren',
+    'friends.inviteNotif':'Vriendverzoek van','friends.alreadyFriends':'Al bevriend',
+    'friends.inviteSelf':'Je kunt jezelf niet uitnodigen','friends.cancelInvite':'Uitnodiging annuleren',
+    'profile.members':'Leden','profile.addMember':'Vriend uitnodigen','profile.noMembers':'Alleen jij hebt toegang',
+    'profile.permReader':'Lezer','profile.permContributor':'Bijdrager','profile.permOwner':'Eigenaar',
+    'profile.kick':'Lid verwijderen','profile.kickWarn':'Hun bankrekeningen worden verwijderd uit dit profiel.',
+    'profile.memberPerm':'Toegangsniveau','profile.sharedAcct':'Gedeeld via',
+    'accounts.sharedWith':'Gedeeld met mij','accounts.iSharing':'Ik deel',
     'profile.deleteConfirmTitle':'Profiel verwijderen?',
     'profile.deleteConfirmDesc':'Dit profiel wordt permanent verwijderd. Transacties blijven behouden.',
     'profile.deleteDataAlso':'De volgende gegevens worden ook permanent verwijderd:',
@@ -1671,6 +1751,8 @@ const TRANSLATIONS = {
     'settings.notifications':'Bildirimler','settings.appearance':'Görünüm',
     'settings.tutorial':'Tur','settings.help':'Yardım ve destek',
     'settings.signOut':'Çıkış yap','settings.language':'Dil',
+    'settings.userId':'Kullanıcı Kimliği','settings.copyId':'Kopyala','settings.copied':'Kopyalandı!',
+    'settings.friends':'Arkadaşlar','settings.friendsSub':'Arkadaşları finans özetini paylaşmaya davet et',
     'settings.languageSub':'İngilizce, Hollandaca, Türkçe destekleniyor',
     'period.income':'Gelir','period.spent':'Harcama','period.invested':'Yatırılan',
     'period.savings':'Tasarruf','period.allocate':'Dağıt',
@@ -1797,6 +1879,18 @@ const TRANSLATIONS = {
     'profile.deleteProfile':'Profili sil',
     'profile.cannotDeleteActive':'Aktif profil silinemez — önce değiştirin',
     'profile.cannotDeleteOnly':'Tek profil silinemez',
+    'friends.myId':'Kimliğiniz','friends.myIdDesc':'Başkalarının sizi eklemesi için bu kimliği paylaşın',
+    'friends.invite':'Arkadaş ekle','friends.invitePlaceholder':'Arkadaş kimliği girin…',
+    'friends.send':'Davet gönder','friends.sent':'Davet gönderildi!','friends.pending':'Bekleyen davetler',
+    'friends.noFriends':'Henüz arkadaş yok — bağlanmak için kimliğinizi paylaşın',
+    'friends.remove':'Kaldır','friends.accept':'Kabul et','friends.decline':'Reddet','friends.block':'Engelle',
+    'friends.inviteNotif':'Arkadaşlık isteği:','friends.alreadyFriends':'Zaten arkadaşsınız',
+    'friends.inviteSelf':'Kendinizi davet edemezsiniz','friends.cancelInvite':'Daveti iptal et',
+    'profile.members':'Üyeler','profile.addMember':'Arkadaş davet et','profile.noMembers':'Yalnızca siz erişebilirsiniz',
+    'profile.permReader':'Okuyucu','profile.permContributor':'Katkıcı','profile.permOwner':'Sahip',
+    'profile.kick':'Üyeyi kaldır','profile.kickWarn':'Bağlı banka hesapları bu profilden kaldırılacak.',
+    'profile.memberPerm':'İzin düzeyi','profile.sharedAcct':'Şu profil aracılığıyla paylaşıldı',
+    'accounts.sharedWith':'Benimle paylaşılan','accounts.iSharing':'Paylaştığım',
     'profile.deleteConfirmTitle':'Profil silinsin mi?',
     'profile.deleteConfirmDesc':'Bu profil kalıcı olarak kaldırılacak. İşlemler kalacak.',
     'profile.deleteDataAlso':'Aşağıdaki veriler de kalıcı olarak silinecek:',
@@ -1870,7 +1964,7 @@ function NavProvider({ children, initial = 'home' }) {
     window.history.replaceState({ tab: initial, depth: 0 }, '');
     const onPop = (e) => {
       const state = e.state;
-      if (!state) return;
+      if (!state || state.munniScreen || state.munniLoginMode) return;
       const curStack = stacksRef.current[tabRef.current];
       if (state.depth < curStack.length) {
         setStacks(s => ({ ...s, [tabRef.current]: s[tabRef.current].slice(0, state.depth) }));
@@ -2317,7 +2411,7 @@ function ScreenHome() {
   const currentUnallocated = alloc ? alloc.unallocated : pd.unallocated;
 
   const activeProfile = profiles.find(p => p.active) || profiles[0];
-  const [connectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
+  const [connectedAccounts] = useConnectedAccounts();
   const syncKey = React.useMemo(() => getUserSyncKey(), []);
   const [lastSyncedStr] = useLocalStorage(syncKey, null);
   const [notifUnread] = useLocalStorage('munni_notif_unread', 0);
@@ -2666,19 +2760,30 @@ function ScreenHome() {
         <Sheet onClose={() => setShowProfileSwitcher(false)}>
           <div style={{ padding:'4px 16px 8px' }}>
             <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>{t('home.switchProfile')}</div>
-            <div className="m-card" style={{ border:`1px solid ${M.line}`, padding:'4px 16px', marginBottom:16, maxHeight:'55vh', overflowY:'auto' }}>
+            <div className="m-card" style={{ border:`1px solid ${M.line}`, padding:'4px 16px', marginBottom:16, maxHeight:280, overflowY:'auto' }}>
               {profiles.map((p, i) => {
-                const acctCount = (p.accountIds || []).length;
+                const acctIds = p.accountIds || [];
+                const acctCount = acctIds.length;
                 const acctLabel = acctCount === 0 ? t('word.noAccounts') : `${acctCount} ${acctCount === 1 ? t('word.account') : t('word.accounts')}`;
+                const reviewN = txs.filter(tx => tx.needsReview && acctIds.includes(tx.account)).length;
+                const hasAction = reviewN > 0;
                 return (
                   <React.Fragment key={p.id}>
                     {i > 0 && <Divider inset={48}/>}
                     <div className="m-tap" onClick={() => activateProfile(p.id)}
                       style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
-                      <ProfileAvatar profile={p} size={36}/>
+                      <div style={{ position:'relative', flexShrink:0 }}>
+                        <ProfileAvatar profile={p} size={36}/>
+                        {hasAction && (
+                          <div style={{ position:'absolute', top:-2, right:-2, width:10, height:10, borderRadius:999, background:M.ochre, border:`2px solid ${M.paper}` }}/>
+                        )}
+                      </div>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:14, fontWeight:600 }}>{p.name}</div>
-                        <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{acctLabel}</div>
+                        <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>
+                          {acctLabel}
+                          {hasAction && <span style={{ marginLeft:6, color:M.ochre, fontWeight:600 }}>· {reviewN} {t('review.title')}</span>}
+                        </div>
                       </div>
                       {p.active ? (
                         <div style={{ width:20, height:20, borderRadius:999, background:M.sage, display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -2943,7 +3048,7 @@ function ScreenTxDetail({ params }) {
   const nav = useNav();
   const { txs, updateTx } = useTxCtx();
   const { recurList, addRecur } = useRecurCtx();
-  const [connectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
+  const [connectedAccounts] = useConnectedAccounts();
 
   const [showLinkRecurring, setShowLinkRecurring] = React.useState(false);
   const [showCatPicker, setShowCatPicker] = React.useState(false);
@@ -4198,7 +4303,7 @@ function ScreenProfile() {
   const [userPicture, setUserPicture] = useLocalStorage(pictureKey, null);
   const { profiles } = useProfiles();
   const activeProfile = profiles.find(p => p.active) || profiles[0];
-  const [connectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
+  const [connectedAccounts] = useConnectedAccounts();
   const [draft, setDraft] = React.useState({ name });
   const [showReset, setShowReset] = React.useState(false);
   const [showPicturePicker, setShowPicturePicker] = React.useState(false);
@@ -4218,7 +4323,15 @@ function ScreenProfile() {
   const initial = (name || '?').charAt(0).toUpperCase();
 
   const isDemo = localStorage.getItem('munni_last_login_method') === 'bank';
+  const userId = React.useMemo(() => getUserId(), []);
+  const [idCopied, setIdCopied] = React.useState(false);
   const connectedBanks = connectedAccounts.filter(a => a.type === 'checking').length;
+
+  const copyUserId = () => {
+    navigator.clipboard?.writeText(userId).catch(() => {});
+    setIdCopied(true);
+    setTimeout(() => setIdCopied(false), 1800);
+  };
   const _lastMethod = localStorage.getItem('munni_last_login_method') || '';
   const emailDisplay = isDemo ? 'demo@munni.app' : (email && !['google@munni.app','apple@munni.app','bank@munni.app',''].includes(email)) ? email : _lastMethod === 'google' ? t('login.signedInGoogle') : _lastMethod === 'apple' ? t('login.signedInApple') : (email || '');
 
@@ -4260,6 +4373,13 @@ function ScreenProfile() {
             )}
             <div style={{ fontSize: 12, color: M.ink3 }}>{emailDisplay}</div>
             {isDemo && <div style={{ fontSize:11, color:M.ochre, marginTop:3 }}>Demo account · read-only profile</div>}
+            <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:5 }}>
+              <span style={{ fontSize:11, color:M.ink4 }}>{t('settings.userId')}:</span>
+              <span style={{ fontSize:11, color:M.ink2, fontFamily:M.fontMono, fontWeight:600, letterSpacing:'0.04em' }}>{userId}</span>
+              <button className="m-tap" onClick={copyUserId} style={{ background:idCopied?M.sageSoft:M.paper2, border:`1px solid ${idCopied?M.sage:M.line}`, borderRadius:6, padding:'2px 8px', fontSize:10, fontWeight:600, color:idCopied?M.sage:M.ink3, cursor:'pointer', fontFamily:M.fontUI, flexShrink:0 }}>
+                {idCopied ? t('settings.copied') : t('settings.copyId')}
+              </button>
+            </div>
           </div>
           {!isDemo && (editing ? (
             <button className="m-tap" onClick={save} style={{ width:36, height:36, borderRadius:999, background:M.sage, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -4276,6 +4396,8 @@ function ScreenProfile() {
         <div className="m-cap" style={{ marginBottom: 8, paddingLeft: 4 }}>{t('settings.manage')}</div>
         <div className="m-card" style={{ padding: '4px 16px', marginBottom: 16, border: `1px solid ${M.line}` }}>
           <ProfileLink icon="user"    label={t('settings.profiles')}       sub={`${profiles.length} profile${profiles.length!==1?'s':''} · ${activeProfile?.name}`} onClick={() => nav.push('profiles')}/>
+          <Divider inset={48}/>
+          <ProfileLink icon="users"   label={t('settings.friends')}        sub={t('settings.friendsSub')}               onClick={() => nav.push('friends')}/>
           <Divider inset={48}/>
           <ProfileLink icon="box"     label={t('screen.categories')}       sub="Manage custom categories"           onClick={() => nav.push('manageCategories')}/>
           <Divider inset={48}/>
@@ -4381,14 +4503,13 @@ function ScreenProfiles() {
   const nav = useNav();
   const { t } = useLang();
   const { profiles, setProfiles } = useProfiles();
-  const [connectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
+  const [connectedAccounts] = useConnectedAccounts();
   const [showNewProfile, setShowNewProfile] = React.useState(false);
   const [newProfileName, setNewProfileName] = React.useState('');
   const [newProfileIsDemo, setNewProfileIsDemo] = React.useState(false);
   const [newProfileError, setNewProfileError] = React.useState('');
 
-  const activeProfile = profiles.find(p => p.active) || profiles[0];
-  const isUserDemo = activeProfile?.id === 'p_demo' || activeProfile?.isDemo;
+  const isUserDemo = localStorage.getItem('munni_last_login_method') === 'bank';
 
   const activateProfile = (id) => setProfiles(ps => ps.map(p => ({ ...p, active: p.id === id })));
 
@@ -4420,8 +4541,8 @@ function ScreenProfiles() {
 
   const profileAccountSub = (p) => {
     const ids = (p.accountIds || []).filter(id => connectedAccounts.some(a => a.id === id));
-    if (ids.length === 0) return t('accounts.noBank').replace(' connected','');
-    return `${ids.length} account${ids.length > 1 ? 's' : ''}`;
+    if (ids.length === 0) return t('word.noAccounts');
+    return `${ids.length} ${ids.length === 1 ? t('word.account') : t('word.accounts')}`;
   };
 
   return (
@@ -4515,16 +4636,21 @@ function ScreenProfileDetail({ params }) {
   const nav = useNav();
   const { t } = useLang();
   const { profiles, setProfiles } = useProfiles();
-  const [connectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
+  const [connectedAccounts] = useConnectedAccounts();
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [editingName, setEditingName] = React.useState(false);
   const [nameDraft, setNameDraft] = React.useState('');
   const [showPhotoSheet, setShowPhotoSheet] = React.useState(false);
+  const [showMembersSheet, setShowMembersSheet] = React.useState(false);
 
   const profile = profiles.find(p => p.id === params?.id);
   if (!profile) return null;
 
   const accountIds = profile.accountIds || [];
+  // Filter accounts by profile type: demo profiles only see demo accounts, real profiles only see real accounts
+  const availableAccounts = profile.isDemo
+    ? connectedAccounts.filter(a => a.isDemo)
+    : connectedAccounts.filter(a => !a.isDemo);
   const isActive = profile.active;
   const isOnly = profiles.length === 1;
 
@@ -4565,8 +4691,8 @@ function ScreenProfileDetail({ params }) {
     nav.pop();
   };
 
-  const mainAccounts = connectedAccounts.filter(a => a.type === 'checking');
-  const savingAccounts = connectedAccounts.filter(a => a.type !== 'checking');
+  const mainAccounts = availableAccounts.filter(a => a.type === 'checking');
+  const savingAccounts = availableAccounts.filter(a => a.type !== 'checking');
 
   const renderAccountRow = (a, i, arr) => {
     const included = accountIds.includes(a.id);
@@ -4656,6 +4782,22 @@ function ScreenProfileDetail({ params }) {
           <I name="caretR" size={12} color={M.ink4} style={{ marginLeft:'auto' }}/>
         </button>
 
+        {/* Members */}
+        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('profile.members')}</div>
+        <div className="m-card m-tap" onClick={() => setShowMembersSheet(true)}
+          style={{ padding:'12px 16px', marginBottom:14, border:`1px solid ${M.line}`, display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ width:36, height:36, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <I name="users" size={16} color={M.sage}/>
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:14, fontWeight:600 }}>{t('profile.addMember')}</div>
+            <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>
+              {(profile.members || []).length === 0 ? t('profile.noMembers') : `${(profile.members || []).length} member${(profile.members||[]).length>1?'s':''}`}
+            </div>
+          </div>
+          <I name="caretR" size={14} color={M.ink4}/>
+        </div>
+
         {/* Delete */}
         <button
           disabled={isOnly || isActive}
@@ -4692,6 +4834,10 @@ function ScreenProfileDetail({ params }) {
             </label>
           </div>
         </Sheet>
+      )}
+
+      {showMembersSheet && (
+        <ProfileMembersSheet profile={profile} onClose={() => setShowMembersSheet(false)}/>
       )}
 
       {showDeleteConfirm && (
@@ -5653,6 +5799,63 @@ function ScreenManageCategories() {
   );
 }
 
+function FriendInviteCards() {
+  const { t } = useLang();
+  const myId = React.useMemo(() => getUserId(), []);
+  const [invitations, setInvitations] = useLocalStorage('munni_global_invitations', []);
+  const [friendships, setFriendships] = useLocalStorage('munni_global_friendships', []);
+  const [userRegistry] = useLocalStorage('munni_global_users', {});
+
+  const pending = invitations.filter(inv => inv.toId === myId && inv.type === 'friend' && inv.status === 'pending');
+  if (pending.length === 0) return null;
+
+  const respond = (inv, action) => {
+    setInvitations(list => list.map(i => i.id === inv.id ? { ...i, status: action } : i));
+    if (action === 'accepted') {
+      setFriendships(list => {
+        const exists = list.some(f => f.users && f.users.includes(inv.fromId) && f.users.includes(myId));
+        if (exists) return list;
+        return [...list, { id: `fr_${Date.now()}`, users: [inv.fromId, myId], since: Date.now() }];
+      });
+    }
+  };
+
+  return (
+    <>
+      <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('friends.pending')}</div>
+      <div className="m-card" style={{ padding:'4px 16px', marginBottom:16, border:`1px solid ${M.line}` }}>
+        {pending.map((inv, i) => {
+          const name = userRegistry[inv.fromId]?.displayName || inv.fromId;
+          return (
+            <React.Fragment key={inv.id}>
+              {i > 0 && <Divider inset={48}/>}
+              <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0' }}>
+                <div style={{ width:36, height:36, borderRadius:999, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <I name="users" size={16} color={M.sage}/>
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:14, fontWeight:600 }}>{name}</div>
+                  <div style={{ fontSize:11, color:M.ink3, fontFamily:M.fontMono }}>{inv.fromId}</div>
+                </div>
+                <div style={{ display:'flex', gap:6 }}>
+                  <button className="m-tap" onClick={() => respond(inv,'accepted')}
+                    style={{ padding:'6px 12px', borderRadius:8, background:M.sage, color:'#fff', border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
+                    {t('friends.accept')}
+                  </button>
+                  <button className="m-tap" onClick={() => respond(inv,'declined')}
+                    style={{ padding:'6px 12px', borderRadius:8, background:M.paper2, color:M.ink2, border:`1px solid ${M.line}`, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>
+                    {t('friends.decline')}
+                  </button>
+                </div>
+              </div>
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
 function ScreenNotifications() {
   const nav = useNav();
   const { t } = useLang();
@@ -5723,7 +5926,7 @@ function ScreenNotifications() {
           {newCount > 0 && (
             <div style={{ marginTop:10, borderRadius:10, overflow:'hidden', border:`1px solid ${M.ochreSoft}` }}>
               <div style={{ padding:'8px 12px', background:M.ochreSoft, fontSize:12, color:M.ochre, fontWeight:500 }}>
-                {newCount === 1 ? t('notif.txSynced') : `${newCount} ${t('notif.txsSynced')}`}
+                {newCount === 1 ? t('notif.txSynced').replace('{n}','1') : t('notif.txsSynced').replace('{n}', newCount)}
               </div>
               <button className="m-tap" onClick={() => { setNewCount(0); nav.push('reviewSwipe'); }} style={{
                 width:'100%', padding:'9px 12px', background:'#fff', border:'none', borderTop:`1px solid ${M.line2}`,
@@ -5736,6 +5939,8 @@ function ScreenNotifications() {
             </div>
           )}
         </div>
+
+        <FriendInviteCards/>
 
         <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('notif.recentTitle')}</div>
         <div className="m-card" style={{ padding:'4px 16px', marginBottom:16, border:`1px solid ${M.line}` }}>
@@ -5843,7 +6048,7 @@ function LogPanel() {
           </div>
           <div style={{ padding:'0 16px', marginBottom:12 }}>
             <div style={{ display:'flex', gap:6 }}>
-              {[['all',t('action.all')],['error',t('notif.filterErrors')],['warn',t('notif.filterWarnings')],['info',t('notif.filterInfo')]].map(([key,lbl]) => (
+              {[['all','All'],['error','Error'],['warn','Warn'],['info','Info']].map(([key,lbl]) => (
                 <button key={key} className="m-tap" onClick={() => setFilter(key)} style={{
                   flex:1, padding:'6px 0', borderRadius:8, fontSize:11, fontWeight:600,
                   border:`1px solid ${filter===key?M.sage:M.line}`,
@@ -5853,7 +6058,7 @@ function LogPanel() {
               ))}
             </div>
           </div>
-          <div style={{ padding:'0 16px 16px', maxHeight:320, overflowY:'auto', display:'flex', flexDirection:'column', gap:8 }}>
+          <div style={{ padding:'0 16px 16px', maxHeight:320, minHeight:320, overflowY:'auto', display:'flex', flexDirection:'column', gap:8 }}>
             {filtered.length === 0 ? (
               <div style={{ padding:'24px 0', textAlign:'center', color:M.ink4, fontSize:13 }}>{t('notif.noLogs')}</div>
             ) : filtered.map(log => (
@@ -5904,7 +6109,7 @@ const DUTCH_BANKS = [
 function ScreenAccounts() {
   const nav = useNav();
   const { addTxs } = useTxCtx();
-  const [connectedAccounts, setConnectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
+  const [connectedAccounts, setConnectedAccounts] = useConnectedAccounts();
   const { profiles, setProfiles } = useProfiles();
   const [showAdd, setShowAdd] = React.useState(false);
   const [bankSearch, setBankSearch] = React.useState('');
@@ -6185,7 +6390,7 @@ function ScreenSavings() {
   const nav = useNav();
   const { t } = useLang();
   const { txs, addTxs, setTxs } = useTxCtx();
-  const [connectedAccounts, setConnectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
+  const [connectedAccounts, setConnectedAccounts] = useConnectedAccounts();
   const [showAddSheet, setShowAddSheet] = React.useState(null);
   const [showCorrectionSheet, setShowCorrectionSheet] = React.useState(null);
   const [addDraft, setAddDraft] = React.useState({ amount:'', desc:'', date:new Date().toISOString().slice(0,10), dir:'deposit' });
@@ -6513,11 +6718,6 @@ function ScreenSavingAccounts() {
   );
 }
 
-const DEMO_ACCOUNTS = [
-  { id:'demo_main1', name:'Demo Bank NL', type:'checking', iban:'NL20 DEMO 0000 0001', balance:2845.32, color:'#6366F1', bankId:'demo', manual:false },
-  { id:'demo_main2', name:'Demo Betaalrekening', type:'checking', iban:'NL20 DEMO 0000 0002', balance:1200.00, color:'#8B5CF6', bankId:'demo', manual:false },
-];
-
 const HOME_CARDS_DEFAULT = [
   { id:'review',     label:'Transaction Review', sub:'Verify categories for newly imported transactions', visible:true,  pinned:true  },
   { id:'period',     label:'Overview',           sub:'Income, spent, savings, invest',                   visible:true,  pinned:true  },
@@ -6530,11 +6730,94 @@ const HOME_CARDS_DEFAULT = [
   { id:'quickActions',label:'Quick Actions',    sub:'Shortcuts to common tasks',                         visible:false, pinned:false },
 ];
 
+function AccountsSharingOverview() {
+  const { t } = useLang();
+  const myId = React.useMemo(() => getUserId(), []);
+  const { profiles } = useProfiles();
+  const [connectedAccounts] = useConnectedAccounts();
+
+  // Accounts others have shared with me: look for profile members arrays across all profiles where I am a non-owner member
+  const sharedWithMe = React.useMemo(() => {
+    const results = [];
+    // Check all profiles in localStorage that have a members array (from any user)
+    // For now, scan current user's profiles only; cross-user sharing is tracked via munni_global_invitations
+    const invs = (() => { try { return JSON.parse(localStorage.getItem('munni_global_invitations') || '[]'); } catch { return []; } })();
+    invs.filter(inv => inv.toId === myId && inv.type === 'profile' && inv.status === 'accepted').forEach(inv => {
+      results.push({ id: inv.id, name: inv.accountName || '—', fromName: inv.fromName || inv.fromId, profileName: inv.profileName || '—', permission: inv.permission || 'reader' });
+    });
+    return results;
+  }, [myId]);
+
+  // Accounts I am sharing: profiles I own that have other members
+  const iSharing = React.useMemo(() => {
+    const results = [];
+    profiles.forEach(p => {
+      const members = (p.members || []).filter(m => m.userId !== myId);
+      if (members.length > 0) {
+        results.push({ profile: p, members });
+      }
+    });
+    return results;
+  }, [profiles, myId]);
+
+  if (sharedWithMe.length === 0 && iSharing.length === 0) return null;
+
+  return (
+    <>
+      {sharedWithMe.length > 0 && (
+        <>
+          <div className="m-cap" style={{ marginBottom:8, paddingLeft:4, marginTop:8 }}>{t('accounts.sharedWith')}</div>
+          <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
+            {sharedWithMe.map((item, i) => (
+              <React.Fragment key={item.id}>
+                {i > 0 && <Divider inset={48}/>}
+                <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0' }}>
+                  <div style={{ width:36, height:36, borderRadius:10, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <I name="card" size={16} color={M.sage}/>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight:500 }}>{item.name}</div>
+                    <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>From <strong>{item.fromName}</strong> · {item.profileName}</div>
+                  </div>
+                  <span style={{ fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:999, background:M.sageSoft, color:M.sage, textTransform:'uppercase' }}>{item.permission}</span>
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+        </>
+      )}
+
+      {iSharing.length > 0 && (
+        <>
+          <div className="m-cap" style={{ marginBottom:8, paddingLeft:4, marginTop:8 }}>{t('accounts.iSharing')}</div>
+          <div className="m-card" style={{ padding:'4px 16px', marginBottom:14, border:`1px solid ${M.line}` }}>
+            {iSharing.map(({ profile, members }, i) => (
+              <React.Fragment key={profile.id}>
+                {i > 0 && <Divider inset={48}/>}
+                <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0' }}>
+                  <div style={{ width:36, height:36, borderRadius:10, background:M.ochreSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <I name="users" size={16} color={M.ochre}/>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight:500 }}>{profile.name}</div>
+                    <div style={{ fontSize:11, color:M.ink3, marginTop:1 }}>{members.map(m => m.displayName || m.userId).join(', ')}</div>
+                  </div>
+                  <span style={{ fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:999, background:M.ochreSoft, color:M.ochre, textTransform:'uppercase' }}>{members.length} member{members.length>1?'s':''}</span>
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 function ScreenAccountsAll() {
   const nav = useNav();
   const { t } = useLang();
   const { addTxs } = useTxCtx();
-  const [connectedAccounts, setConnectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
+  const [connectedAccounts, setConnectedAccounts] = useConnectedAccounts();
   const { profiles, setProfiles } = useProfiles();
   const [showAdd, setShowAdd] = React.useState(false);
   const [showAddChoice, setShowAddChoice] = React.useState(false);
@@ -6842,6 +7125,7 @@ function ScreenAccountsAll() {
             </div>
           </>
         )}
+        <AccountsSharingOverview/>
         <div style={{ height:8 }}/>
       </div>
 
@@ -8019,6 +8303,14 @@ function useLocalStorage(key, defaultValue) {
 
 function clearAllStorage() { localStorage.clear(); }
 
+// ── Connected accounts hook (user-bound) ────────────────────────
+function useConnectedAccounts() {
+  const [loginMethod] = useLocalStorage('munni_last_login_method', '');
+  const acctKey = `munni_bank_accounts_${loginMethod || 'default'}`;
+  const defaultAccts = React.useMemo(() => getDefaultAccounts(loginMethod), [loginMethod]);
+  return useLocalStorage(acctKey, defaultAccts);
+}
+
 // ── Profile-bound data hooks ────────────────────────────────────
 const DEFAULT_PROFILE_IDS = ['p1','p2','p3','p_demo'];
 function useProfileBudgets() {
@@ -8048,27 +8340,31 @@ const useCatCtx = () => React.useContext(CatCtx);
 
 // ── Profiles context — single source of truth ──────────────────
 const ProfilesCtx = React.createContext(null);
+
+function computeProfileKey(method, email) {
+  if (method === 'google') return 'munni_profiles_google';
+  if (method === 'apple') return 'munni_profiles_apple';
+  if (method === 'bank') return 'munni_profiles_bank';
+  if (email && !['google@munni.app','apple@munni.app','bank@munni.app',''].includes(email))
+    return `munni_profiles_${email}`;
+  return 'munni_profiles';
+}
+
+function getDefaultProfiles(method) {
+  if (method === 'google') return [{ id:'p1', name:'Personal', icon:'user', active:true, accountIds:['main','save','inv'], picture:null }];
+  if (method === 'apple') return [{ id:'p2', name:'Family', icon:'house', active:true, accountIds:['main'], picture:null }];
+  if (method === 'bank') return [{ id:'p_demo', name:'Demo', icon:'user', active:true, accountIds:['main','save'], picture:'av7', isDemo:true }];
+  return [{ id:'p3', name:'Freelance', icon:'bag', active:true, accountIds:[], picture:null }];
+}
+
 function ProfilesProvider({ children }) {
-  const profileKey = React.useMemo(() => {
-    const method = localStorage.getItem('munni_last_login_method') || '';
-    if (method === 'google') return 'munni_profiles_google';
-    if (method === 'apple') return 'munni_profiles_apple';
-    if (method === 'bank') return 'munni_profiles_bank';
-    try {
-      const e = JSON.parse(localStorage.getItem('munni_profile_email') || '""');
-      if (e && !['google@munni.app','apple@munni.app','bank@munni.app',''].includes(e))
-        return `munni_profiles_${e}`;
-    } catch {}
-    return 'munni_profiles';
-  }, []);
-  const defaultForUser = React.useMemo(() => {
-    const method = localStorage.getItem('munni_last_login_method') || '';
-    if (method === 'google') return [{ id:'p1', name:'Personal', icon:'user', active:true, accountIds:['main','save','inv'], picture:null }];
-    if (method === 'apple') return [{ id:'p2', name:'Family', icon:'house', active:true, accountIds:['main'], picture:null }];
-    if (method === 'bank') return [{ id:'p_demo', name:'Demo', icon:'user', active:true, accountIds:['main','save'], picture:'av7', isDemo:true }];
-    return [{ id:'p3', name:'Freelance', icon:'bag', active:true, accountIds:['main'], picture:null }];
-  }, []);
-  const [profiles, setProfiles] = useLocalStorage(profileKey, defaultForUser);
+  // Reactive: re-compute key whenever login method changes
+  const [loginMethod] = useLocalStorage('munni_last_login_method', '');
+  const [email] = useLocalStorage('munni_profile_email', '');
+  const safeEmail = React.useMemo(() => { try { return JSON.parse(email || '""') || ''; } catch { return ''; } }, [email]);
+  const profileKey = computeProfileKey(loginMethod, safeEmail);
+  const defaultProfiles = React.useMemo(() => getDefaultProfiles(loginMethod), [loginMethod]);
+  const [profiles, setProfiles] = useLocalStorage(profileKey, defaultProfiles);
   return <ProfilesCtx.Provider value={{ profiles, setProfiles }}>{children}</ProfilesCtx.Provider>;
 }
 const useProfiles = () => React.useContext(ProfilesCtx);
@@ -10558,6 +10854,271 @@ function ScreenSignupDemo() {
   <script type="text/babel">
 // ── app.jsx ────────────────────────────────────────────────────
 
+// ── Friends feature ─────────────────────────────────────────────
+function ScreenFriends() {
+  const nav = useNav();
+  const { t } = useLang();
+  const myId = React.useMemo(() => getUserId(), []);
+  const myName = React.useMemo(() => { try { return JSON.parse(localStorage.getItem('munni_profile_name') || '""') || myId; } catch { return myId; } }, [myId]);
+  const [inviteInput, setInviteInput] = React.useState('');
+  const [inviteError, setInviteError] = React.useState('');
+  const [inviteSent, setInviteSent] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const [invitations, setInvitations] = useLocalStorage('munni_global_invitations', []);
+  const [friendships, setFriendships] = useLocalStorage('munni_global_friendships', []);
+  const [userRegistry] = useLocalStorage('munni_global_users', {});
+  const [permSheet, setPermSheet] = React.useState(null);
+
+  React.useEffect(() => { registerUserInGlobalRegistry(myId, myName); }, [myId, myName]);
+
+  const myFriendships = friendships.filter(f => f.users.includes(myId));
+  const myFriendIds = myFriendships.map(f => f.users.find(u => u !== myId));
+  const sentInvites = invitations.filter(i => i.fromId === myId && i.type === 'friend' && i.status === 'pending');
+
+  const sendInvite = () => {
+    const toId = inviteInput.trim().toLowerCase();
+    if (!toId) return;
+    if (toId === myId) { setInviteError(t('friends.inviteSelf')); return; }
+    if (myFriendIds.includes(toId)) { setInviteError(t('friends.alreadyFriends')); return; }
+    if (sentInvites.some(i => i.toId === toId)) { setInviteError(t('friends.sent')); return; }
+    const inv = { id:`inv_${Date.now()}`, fromId:myId, fromName:myName, toId, type:'friend', status:'pending', sentAt:Date.now() };
+    setInvitations(arr => [...arr, inv]);
+    setInviteInput(''); setInviteError(''); setInviteSent(true);
+    setTimeout(() => setInviteSent(false), 2500);
+  };
+  const cancelInvite = (invId) => setInvitations(arr => arr.filter(i => i.id !== invId));
+  const removeFriend = (friendId) => {
+    setFriendships(arr => arr.filter(f => !(f.users.includes(myId) && f.users.includes(friendId))));
+    setInvitations(arr => arr.filter(i => !((i.fromId===myId&&i.toId===friendId)||(i.fromId===friendId&&i.toId===myId))));
+  };
+  const copyId = () => { navigator.clipboard?.writeText(myId).catch(()=>{}); setCopied(true); setTimeout(()=>setCopied(false),1800); };
+
+  const PERM_COLORS = { Reader:M.ink3, Contributor:M.sage, Owner:M.ochre };
+
+  return (
+    <div className="m-screen">
+      <StatusBar/>
+      <AppBar title={t('settings.friends')} leading={<button className="m-iconbtn m-tap" onClick={()=>nav.pop()}><I name="arrowL" size={20}/></button>}/>
+      <div className="m-body-scroll">
+        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('friends.myId')}</div>
+        <div className="m-card" style={{ padding:'14px 16px', marginBottom:16, border:`1px solid ${M.line}` }}>
+          <div style={{ fontSize:11, color:M.ink4, marginBottom:6 }}>{t('friends.myIdDesc')}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ fontSize:20, fontWeight:800, fontFamily:M.fontMono, letterSpacing:'0.08em', color:M.ink, flex:1 }}>{myId}</div>
+            <button className="m-tap" onClick={copyId} style={{ padding:'7px 14px', borderRadius:10, background:copied?M.sageSoft:M.paper2, border:`1px solid ${copied?M.sage:M.line}`, fontSize:12, fontWeight:600, color:copied?M.sage:M.ink3, cursor:'pointer', fontFamily:M.fontUI, flexShrink:0 }}>
+              {copied ? t('settings.copied') : t('settings.copyId')}
+            </button>
+          </div>
+        </div>
+
+        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('friends.invite')}</div>
+        <div className="m-card" style={{ padding:'14px 16px', marginBottom:16, border:`1px solid ${M.line}` }}>
+          <div style={{ display:'flex', gap:8 }}>
+            <input value={inviteInput} onChange={e=>{setInviteInput(e.target.value);setInviteError('');}}
+              placeholder={t('friends.invitePlaceholder')}
+              style={{ flex:1, padding:'10px 12px', borderRadius:10, border:`1px solid ${inviteError?M.clay:M.line}`, fontSize:13, fontFamily:M.fontMono, background:M.paper2, color:M.ink, outline:'none' }}
+              onKeyDown={e=>e.key==='Enter'&&sendInvite()}/>
+            <button className="m-btn sage m-tap" style={{ padding:'0 16px', flexShrink:0, fontSize:13 }} onClick={sendInvite}>{t('friends.send')}</button>
+          </div>
+          {inviteError && <div style={{ fontSize:12, color:M.clay, marginTop:8 }}>{inviteError}</div>}
+          {inviteSent && <div style={{ fontSize:12, color:M.sage, marginTop:8, fontWeight:500 }}>{t('friends.sent')}</div>}
+        </div>
+
+        {sentInvites.length > 0 && (<>
+          <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>{t('friends.pending')}</div>
+          <div className="m-card" style={{ padding:'4px 16px', marginBottom:16, border:`1px solid ${M.line}` }}>
+            {sentInvites.map((inv,i)=>(
+              <React.Fragment key={inv.id}>
+                {i>0&&<Divider inset={40}/>}
+                <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 0' }}>
+                  <div style={{ width:32, height:32, borderRadius:999, background:M.ochreSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:14, fontWeight:700, color:M.ochre }}>{inv.toId.charAt(0).toUpperCase()}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:600, fontFamily:M.fontMono }}>{inv.toId}</div>
+                    <div style={{ fontSize:11, color:M.ochre }}>{t('friends.pending')}</div>
+                  </div>
+                  <button className="m-tap" onClick={()=>cancelInvite(inv.id)} style={{ fontSize:11, padding:'4px 10px', borderRadius:8, background:M.paper2, border:`1px solid ${M.line}`, color:M.ink3, cursor:'pointer', fontFamily:M.fontUI }}>✕</button>
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+        </>)}
+
+        <div className="m-cap" style={{ marginBottom:8, paddingLeft:4 }}>Friends ({myFriendIds.length})</div>
+        {myFriendIds.length === 0 ? (
+          <div style={{ textAlign:'center', color:M.ink4, fontSize:13, padding:'28px 0' }}>{t('friends.noFriends')}</div>
+        ) : (
+          <div className="m-card" style={{ padding:'4px 16px', marginBottom:16, border:`1px solid ${M.line}` }}>
+            {myFriendIds.map((fid,i)=>{
+              const info = userRegistry[fid] || {};
+              return (
+                <React.Fragment key={fid}>
+                  {i>0&&<Divider inset={48}/>}
+                  <div style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0' }}>
+                    <div style={{ width:36, height:36, borderRadius:999, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:15, fontWeight:700, color:M.sage }}>{(info.displayName||fid).charAt(0).toUpperCase()}</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14, fontWeight:600 }}>{info.displayName||fid}</div>
+                      <div style={{ fontSize:11, color:M.ink4, fontFamily:M.fontMono }}>{fid}</div>
+                    </div>
+                    <button className="m-tap" onClick={()=>removeFriend(fid)} style={{ fontSize:11, padding:'5px 11px', borderRadius:8, background:M.claySoft, border:'none', color:M.clay, cursor:'pointer', fontFamily:M.fontUI, fontWeight:600 }}>{t('friends.remove')}</button>
+                  </div>
+                </React.Fragment>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Profile Members sheet (used inside ScreenProfileDetail) ──────
+function ProfileMembersSheet({ profile, onClose }) {
+  const { t } = useLang();
+  const myId = React.useMemo(() => getUserId(), []);
+  const { profiles, setProfiles } = useProfiles();
+  const [connectedAccounts, setConnectedAccounts] = useConnectedAccounts();
+  const [friendships] = useLocalStorage('munni_global_friendships', []);
+  const [invitations, setInvitations] = useLocalStorage('munni_global_invitations', []);
+  const [userRegistry] = useLocalStorage('munni_global_users', {});
+  const [inviteSheet, setInviteSheet] = React.useState(false);
+  const [kickConfirm, setKickConfirm] = React.useState(null);
+  const [permEdit, setPermEdit] = React.useState(null);
+
+  const myFriendIds = friendships.filter(f=>f.users.includes(myId)).map(f=>f.users.find(u=>u!==myId));
+  const members = profile.members || [];
+  const myPerm = members.find(m=>m.userId===myId)?.permission || 'owner';
+  const canManage = myPerm === 'owner';
+  const pendingMemberInvites = invitations.filter(i=>i.fromId===myId&&i.type==='profile'&&i.profileId===profile.id&&i.status==='pending');
+
+  const updateProfile = (updater) => setProfiles(ps => ps.map(p => p.id===profile.id ? updater(p) : p));
+
+  const inviteFriend = (friendId) => {
+    const info = userRegistry[friendId] || {};
+    const inv = { id:`inv_${Date.now()}`, fromId:myId, fromName:'', toId:friendId, type:'profile', profileId:profile.id, profileName:profile.name, permission:'contributor', status:'pending', sentAt:Date.now() };
+    setInvitations(arr=>[...arr, inv]);
+    setInviteSheet(false);
+  };
+
+  const kickMember = (userId) => {
+    // Remove their connected bank accounts from this profile
+    const member = members.find(m=>m.userId===userId);
+    const memberAccountIds = (member?.accountIds||[]);
+    updateProfile(p => ({
+      ...p,
+      accountIds: (p.accountIds||[]).filter(id=>!memberAccountIds.includes(id)),
+      members: (p.members||[]).filter(m=>m.userId!==userId),
+    }));
+    setKickConfirm(null);
+  };
+
+  const changePerm = (userId, perm) => {
+    updateProfile(p => ({ ...p, members: (p.members||[]).map(m=>m.userId===userId?{...m,permission:perm}:m) }));
+    setPermEdit(null);
+  };
+
+  const PERMS = ['reader','contributor','owner'];
+  const PERM_LABEL = { reader:t('profile.permReader'), contributor:t('profile.permContributor'), owner:t('profile.permOwner') };
+  const PERM_COLOR = { reader:M.ink3, contributor:M.sage, owner:M.ochre };
+
+  const uninvitedFriends = myFriendIds.filter(fid => !members.some(m=>m.userId===fid) && !pendingMemberInvites.some(i=>i.toId===fid));
+
+  return (
+    <Sheet onClose={onClose}>
+      <div style={{ padding:'4px 16px 0' }}>
+        <div style={{ fontSize:17, fontWeight:700, marginBottom:16 }}>{t('profile.members')}</div>
+      </div>
+      <div style={{ padding:'0 16px', maxHeight:400, overflowY:'auto' }}>
+        {/* Members list */}
+        {members.length === 0 && <div style={{ color:M.ink4, fontSize:13, textAlign:'center', padding:'16px 0', marginBottom:8 }}>{t('profile.noMembers')}</div>}
+        {members.map((m,i)=>{
+          const info = userRegistry[m.userId]||{};
+          const isMe = m.userId===myId;
+          return (
+            <div key={m.userId} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:`1px solid ${M.line2}` }}>
+              <div style={{ width:34, height:34, borderRadius:999, background:isMe?M.sageSoft:M.paper2, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:14, fontWeight:700, color:isMe?M.sage:M.ink2 }}>
+                {(info.displayName||m.userId).charAt(0).toUpperCase()}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:600 }}>{info.displayName||m.userId}{isMe?' (you)':''}</div>
+                <button onClick={()=>canManage&&!isMe&&setPermEdit(m.userId)} style={{ fontSize:11, color:PERM_COLOR[m.permission]||M.ink3, fontWeight:600, background:'none', border:'none', padding:0, cursor:canManage&&!isMe?'pointer':'default', fontFamily:M.fontUI }}>
+                  {PERM_LABEL[m.permission]||m.permission}
+                </button>
+              </div>
+              {canManage && !isMe && (
+                <button className="m-tap" onClick={()=>setKickConfirm(m.userId)} style={{ fontSize:11, padding:'4px 10px', borderRadius:8, background:M.claySoft, border:'none', color:M.clay, cursor:'pointer', fontFamily:M.fontUI }}>✕</button>
+              )}
+            </div>
+          );
+        })}
+        {/* Pending invites */}
+        {pendingMemberInvites.map(inv=>{
+          const info = userRegistry[inv.toId]||{};
+          return (
+            <div key={inv.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:`1px solid ${M.line2}` }}>
+              <div style={{ width:34, height:34, borderRadius:999, background:M.ochreSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:14, fontWeight:700, color:M.ochre }}>{(info.displayName||inv.toId).charAt(0).toUpperCase()}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:600 }}>{info.displayName||inv.toId}</div>
+                <div style={{ fontSize:11, color:M.ochre }}>{t('friends.pending')}</div>
+              </div>
+              <button className="m-tap" onClick={()=>setInvitations(arr=>arr.filter(i=>i.id!==inv.id))} style={{ fontSize:11, padding:'4px 10px', borderRadius:8, background:M.paper2, border:`1px solid ${M.line}`, color:M.ink3, cursor:'pointer', fontFamily:M.fontUI }}>✕</button>
+            </div>
+          );
+        })}
+        {/* Invite button */}
+        {canManage && uninvitedFriends.length > 0 && (
+          <button className="m-tap" onClick={()=>setInviteSheet(true)} style={{ width:'100%', padding:'12px 0', display:'flex', alignItems:'center', justifyContent:'center', gap:6, color:M.sage, fontSize:14, fontWeight:600, background:'none', border:'none', cursor:'pointer', fontFamily:M.fontUI, marginTop:4 }}>
+            <I name="plus" size={16} color={M.sage}/> {t('profile.addMember')}
+          </button>
+        )}
+        <div style={{ height:16 }}/>
+      </div>
+      {/* Perm edit sheet */}
+      {permEdit && (
+        <Sheet onClose={()=>setPermEdit(null)}>
+          <div style={{ padding:'4px 16px 8px' }}>
+            <div style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>{t('profile.memberPerm')}</div>
+            {PERMS.map(p=>(
+              <button key={p} className="m-tap" onClick={()=>changePerm(permEdit,p)} style={{ width:'100%', padding:'13px 16px', marginBottom:8, borderRadius:12, border:`2px solid ${members.find(m=>m.userId===permEdit)?.permission===p?M.sage:M.line}`, background:members.find(m=>m.userId===permEdit)?.permission===p?M.sageSoft:M.paper, display:'flex', flexDirection:'column', alignItems:'flex-start', cursor:'pointer', fontFamily:M.fontUI }}>
+                <span style={{ fontWeight:700, color:PERM_COLOR[p] }}>{PERM_LABEL[p]}</span>
+                <span style={{ fontSize:11, color:M.ink3, marginTop:2 }}>{ p==='reader'?'View transactions, budgets, goals':p==='contributor'?'Also add & edit data':'Full access + manage members' }</span>
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
+      {/* Kick confirm sheet */}
+      {kickConfirm && (
+        <Sheet onClose={()=>setKickConfirm(null)}>
+          <div style={{ padding:'4px 16px 8px' }}>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:8 }}>{t('profile.kick')}?</div>
+            <div style={{ fontSize:14, color:M.ink3, marginBottom:20, lineHeight:1.5 }}>{t('profile.kickWarn')}</div>
+            <button onClick={()=>kickMember(kickConfirm)} style={{ width:'100%', padding:'14px 0', background:M.clay, color:'#fff', border:'none', borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI, marginBottom:10 }}>{t('profile.kick')}</button>
+            <button onClick={()=>setKickConfirm(null)} style={{ width:'100%', padding:'14px 0', background:M.paper2, color:M.ink, border:`1px solid ${M.line}`, borderRadius:12, fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:M.fontUI }}>{t('action.cancel')}</button>
+          </div>
+        </Sheet>
+      )}
+      {/* Invite friend sheet */}
+      {inviteSheet && (
+        <Sheet onClose={()=>setInviteSheet(false)}>
+          <div style={{ padding:'4px 16px 8px' }}>
+            <div style={{ fontSize:16, fontWeight:700, marginBottom:12 }}>{t('profile.addMember')}</div>
+            {uninvitedFriends.map((fid,i)=>{
+              const info = userRegistry[fid]||{};
+              return (
+                <div key={fid} className="m-tap" onClick={()=>inviteFriend(fid)} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:i<uninvitedFriends.length-1?`1px solid ${M.line2}`:'none' }}>
+                  <div style={{ width:36, height:36, borderRadius:999, background:M.sageSoft, display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, fontWeight:700, color:M.sage }}>{(info.displayName||fid).charAt(0).toUpperCase()}</div>
+                  <div style={{ flex:1 }}><div style={{ fontSize:14, fontWeight:600 }}>{info.displayName||fid}</div><div style={{ fontSize:11, color:M.ink4, fontFamily:M.fontMono }}>{fid}</div></div>
+                  <I name="plus" size={16} color={M.sage}/>
+                </div>
+              );
+            })}
+          </div>
+        </Sheet>
+      )}
+    </Sheet>
+  );
+}
+
 const SCREEN_REGISTRY = {
   txDetail:       ({params}) => <ScreenTxDetail params={params}/>,
   expenses:       () => <ScreenExpenses/>,
@@ -10606,6 +11167,7 @@ const SCREEN_REGISTRY = {
   signupDemo:     () => <ScreenSignupDemo/>,
   language:       () => <ScreenLanguagePicker/>,
   customGraphCreate: () => <ScreenCustomGraphCreate/>,
+  friends:           () => <ScreenFriends/>,
 };
 
 function TabRoot() {
@@ -10776,6 +11338,17 @@ function ScreenLoginGate({ onLogin }) {
   const getSignupMethods = () => { try { return JSON.parse(localStorage.getItem('munni_signup_methods') || '[]'); } catch { return []; } };
   const getSignupEmails = () => { try { return JSON.parse(localStorage.getItem('munni_signup_emails') || '[]'); } catch { return []; } };
 
+  const MODE_BACK = { signup:'login', 'signup-email':'signup', 'signup-email-verify':'signup-email', 'email-verify':'login', 'no-account':'login', 'signup-bank':'login', 'email-input':'login' };
+  const modeRef = React.useRef(mode);
+  modeRef.current = mode;
+  React.useEffect(() => {
+    if (!MODE_BACK[mode]) return;
+    window.history.pushState({ munniLoginMode: mode }, '');
+    const handlePop = () => { const prev = MODE_BACK[modeRef.current]; if (prev) setMode(prev); };
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
+  }, [mode]);
+
   const doLogin = (method, email, displayName, activateDemo = false) => {
     const methods = [...new Set([...getSignupMethods(), method])];
     localStorage.setItem('munni_signup_methods', JSON.stringify(methods));
@@ -10787,6 +11360,9 @@ function ScreenLoginGate({ onLogin }) {
     const targetId = activateDemo ? 'p_demo' : 'p1';
     const updated = profiles.map(p => ({ ...p, active: p.id === targetId }));
     localStorage.setItem('munni_profiles', JSON.stringify(updated));
+    const userId = getUserId();
+    const name = displayName || (method === 'google' ? 'Google van der Berg' : method === 'apple' ? 'Apple van der Berg' : method === 'bank' ? 'Demo User' : email || userId);
+    registerUserInGlobalRegistry(userId, name);
     onLogin();
   };
 
