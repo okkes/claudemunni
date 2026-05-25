@@ -4197,6 +4197,7 @@ function ScreenProfile() {
   }, []);
   const [userPicture, setUserPicture] = useLocalStorage(pictureKey, null);
   const { profiles } = useProfiles();
+  const activeProfile = profiles.find(p => p.active) || profiles[0];
   const [connectedAccounts] = useLocalStorage('munni_bank_accounts', () => ACCOUNTS.slice());
   const [draft, setDraft] = React.useState({ name });
   const [showReset, setShowReset] = React.useState(false);
